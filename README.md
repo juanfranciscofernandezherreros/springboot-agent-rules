@@ -43,9 +43,9 @@ Controllers handle HTTP concerns only. Services own business logic and transacti
 
 ## Target stack
 
-The rules target:
+The default stack is:
 
-- Java 25
+- Java 21
 - Spring Boot 4.0.0
 - Maven Wrapper
 - Spring Web MVC
@@ -57,6 +57,8 @@ The rules target:
 - Lombok
 - JUnit 6, Mockito, and AssertJ
 - Spotless with Palantir Java Format
+
+New generated persistent services use SQL Server by default. Do not substitute H2, PostgreSQL, MySQL, or another database unless the user explicitly requests a different engine or an existing project already defines another datasource that must be preserved.
 
 For persistence/integration behavior that depends on SQL Server semantics, the rules require testing against SQL Server rather than assuming H2 is equivalent.
 
@@ -94,7 +96,7 @@ See [`docs/database.md`](docs/database.md) for the complete rules.
 
 Flyway owns schema evolution. Generated SQL Server projects use SQL Server-compatible migrations, and Hibernate validates the schema with `ddl-auto: validate`.
 
-New migrations must use SQL Server/T-SQL-compatible types and syntax when SQL Server is the selected engine.
+New migrations must use SQL Server/T-SQL-compatible types and syntax.
 
 ## Generated project quality gate
 
@@ -109,7 +111,7 @@ Generated Maven projects must provide the wrapper and pass:
 A persistent feature request should specify, or allow the existing project to determine:
 
 - feature and API path;
-- database engine/datasource;
+- datasource when more than one exists;
 - schema when relevant;
 - fields and Java types;
 - validation/nullability;
@@ -119,6 +121,8 @@ A persistent feature request should specify, or allow the existing project to de
 - searchable/filterable fields;
 - indexes/migration requirements.
 
+Unless explicitly overridden, the database engine is SQL Server.
+
 Example:
 
 ```text
@@ -127,7 +131,7 @@ Persistence work must follow docs/database.md.
 
 Create a Customer CRUD feature.
 
-Database: existing SQL Server datasource
+Database: SQL Server
 Base path: /customers
 
 Fields:
