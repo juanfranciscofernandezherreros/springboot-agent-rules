@@ -3,55 +3,59 @@
 Standards: [`docs/java-style.md`](docs/java-style.md) · [`docs/annotations.md`](docs/annotations.md) ·
 [`docs/layered-architecture.md`](docs/layered-architecture.md) · [`docs/controllers.md`](docs/controllers.md) ·
 [`docs/mappers.md`](docs/mappers.md) · [`docs/exceptions.md`](docs/exceptions.md) ·
-[`docs/testing.md`](docs/testing.md) · [`docs/logging.md`](docs/logging.md)
+[`docs/testing.md`](docs/testing.md) · [`docs/logging.md`](docs/logging.md) ·
+[`docs/database.md`](docs/database.md)
 
 ## Agent workflow
 
 Before modifying or generating code:
 
 1. Read this file completely.
-2. Read the relevant files under `docs/`.
+2. Read every relevant file under `docs/`. Persistence work always requires `docs/database.md`.
 3. Inspect existing project conventions before creating new files.
-4. Do not introduce new dependencies unless required by the requested feature.
+4. Do not introduce new dependencies unless required by the requested feature or selected database engine.
 5. Follow the architecture documented here even if another Spring convention would also work.
 6. Keep changes focused on the requested task.
 7. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
 8. After changes, run formatting and the relevant tests.
 9. Prefer existing patterns over inventing new abstractions.
 10. If generating a project from scratch, create all files necessary for it to build and run.
+11. For a persistent project, ensure the selected database can be started locally and that the application configuration, JDBC driver, Flyway module, migrations, and documentation agree on the same engine.
 
 ## Stack
 
 Java 25 · Spring Boot 4.x · Maven or Gradle · Spring Data JPA · Lombok · JUnit 6 + Mockito + AssertJ.
 
+The reference application currently demonstrates Microsoft SQL Server. The rules remain reusable for another database only when the user or the existing project explicitly selects it.
+
 ## Database and datasource rules
 
-The ruleset is database-engine agnostic unless the existing project or the feature request selects a specific engine.
+`docs/database.md` is the source of truth for datasource, SQL Server, Docker Compose, Flyway, multi-datasource, secret handling, and environment rules.
 
 Before creating or changing persistence code:
 
 1. Inspect the existing datasource configuration, JDBC dependencies, Flyway modules, JPA configuration, persistence units, transaction managers, and migration scripts.
 2. Reuse the project's existing database engine and datasource conventions unless the user explicitly requests another database.
-3. Do not silently replace PostgreSQL, SQL Server, MySQL, or another configured engine.
+3. Do not silently replace SQL Server, PostgreSQL, MySQL, or another configured engine.
 4. Do not invent datasource names, schemas, connection properties, credentials, trust stores, authentication modes, or pool sizes.
-5. Never hardcode credentials or secret values. Keep usernames, passwords, trust-store passwords, hosts, ports, and database names externally configured.
-6. If the requested feature requires a new database engine or datasource, add only the driver and database-specific support that are actually required.
+5. Never hardcode production credentials or secret values.
+6. If a new database engine or datasource is explicitly requested, add only the driver and database-specific support actually required.
 7. Database migrations must use SQL compatible with the selected database engine.
-8. Prefer schema validation in deployed environments. Do not rely on Hibernate to create or mutate production schemas when Flyway owns schema evolution.
+8. Flyway owns deployed schema evolution; keep Hibernate schema handling at `validate` unless an established test profile intentionally uses otherwise.
 
-### SQL Server
+### SQL Server reference behavior
 
-When the existing project uses Microsoft SQL Server:
+When SQL Server is selected:
 
-- Use the Microsoft JDBC driver: `com.microsoft.sqlserver.jdbc.SQLServerDriver`.
-- Use `org.hibernate.dialect.SQLServerDialect` when the project explicitly configures a Hibernate dialect.
-- Preserve existing SQL Server JDBC URL options such as encryption, certificate handling, integrated authentication, NTLM settings, and trust-store configuration. Do not add or remove those options unless explicitly requested.
-- Keep connection values externalized, for example host, port, database name, username, password, and trust-store password.
-- When Flyway is used, generate SQL Server-compatible migrations rather than PostgreSQL- or H2-specific SQL.
-- Respect the existing schema, including `dbo` or any project-specific schema. Do not assume `dbo` when another schema is configured.
-- If `ddl-auto` is already configured as `validate`, preserve it unless the task explicitly requires a configuration change.
+- Use `com.microsoft.sqlserver.jdbc.SQLServerDriver` and the `com.microsoft.sqlserver:mssql-jdbc` artifact.
+- Use Flyway SQL Server support (`org.flywaydb:flyway-sqlserver`).
+- Use SQL Server-compatible Flyway migrations.
+- Use `org.hibernate.dialect.SQLServerDialect` only when the project explicitly configures the dialect.
+- For local development, prefer the repository Docker Compose SQL Server and simple SQL authentication.
+- For deployed/corporate environments, preserve existing TLS, NTLM/integrated-security, trust-store, datasource name, persistence-unit, schema, secret injection, and Hikari settings rather than replacing them with local defaults.
+- Local development configuration and corporate configuration are intentionally different connection profiles for the same database engine.
 
-Example of an existing named SQL Server datasource configuration that must be preserved when encountered:
+A corporate datasource may look like:
 
 ```yaml
 spring:
@@ -73,21 +77,30 @@ spring:
         pool-name: ConnPoolBilling
 ```
 
-The values above are an example of a project-specific datasource shape, not defaults for new projects. In particular, pool sizing, authentication mode, TLS options, trust-store paths, and persistence-unit names must come from the existing project or from explicit requirements.
+These values are an example of an existing project-specific shape, not defaults. Never copy its pool sizes, authentication settings, trust-store path, persistence-unit name, or secret values into an unrelated project.
+
+A deployment block such as:
+
+```yaml
+- group: sql-server-billinguser
+  scope: global
+  secrets: true
+```
+
+is platform/secret configuration, not Spring Boot configuration. Preserve the external secret integration and never inline the secrets in source control.
 
 ### Multiple datasources
 
-When a project contains named datasources such as `spring.datasource.sqlserverdb` instead of the standard single `spring.datasource` configuration, treat it as a custom or multi-datasource setup until proven otherwise.
+When a project contains named datasources such as `spring.datasource.sqlserverdb`, treat it as custom or multi-datasource configuration until proven otherwise.
 
-Before modifying such a project:
+Before modifying it:
 
-- Locate and inspect the corresponding `@ConfigurationProperties`, `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`, repository configuration, and persistence-unit setup.
-- Determine which datasource owns the feature's entities and repositories.
-- Bind new repositories and entities to the correct persistence unit and transaction manager.
-- Do not move a feature from one datasource to another unless explicitly requested.
-- Do not collapse multiple datasources into the default Spring Boot datasource configuration.
-- Use the transaction manager associated with the datasource that owns the operation.
-- Cross-database operations must not be assumed to be atomic. Do not introduce distributed transactions unless explicitly required.
+- locate the corresponding `@ConfigurationProperties`, `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`, repository configuration, entity packages, and persistence-unit setup;
+- determine which datasource owns the feature's entities and repositories;
+- bind new repositories and entities to the correct persistence unit and transaction manager;
+- do not move a feature between datasources unless explicitly requested;
+- do not collapse multiple datasources into the default Spring Boot datasource;
+- do not assume cross-database operations are atomic or introduce distributed transactions unless explicitly required.
 
 ### New persistent feature inputs
 
@@ -101,10 +114,11 @@ When generating a new persistent feature, determine from the request or existing
 - required and optional fields;
 - validation constraints;
 - uniqueness constraints;
-- relationships;
+- relationships and foreign keys;
 - generated/default values;
 - supported CRUD operations;
-- searchable and filterable fields.
+- searchable/filterable fields;
+- indexes and migration requirements.
 
 Do not invent domain fields, relationships, uniqueness rules, database-specific behavior, or a new datasource when they are not present in the request or existing project.
 
