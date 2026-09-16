@@ -2,10 +2,19 @@
 
 Use these rules whenever persistence, datasource configuration, migrations, or database-specific tests are involved.
 
+## Default engine
+
+Microsoft SQL Server is the default persistence engine for every new generated persistent Spring Boot service.
+
+When a new project or feature needs persistence and no existing datasource determines the engine, use SQL Server. Do not substitute H2, PostgreSQL, MySQL, or another database unless the user explicitly requests it.
+
+For an existing project, preserve its configured datasource and database engine unless the user explicitly requests migration or replacement.
+
 ## General rules
 
 - Inspect the existing JDBC driver, datasource properties, JPA configuration, Flyway modules, persistence units, transaction managers, schemas, and migrations before changing persistence code.
-- Reuse the configured database engine unless the request explicitly asks for another engine.
+- For a new generated project with no existing datasource, use Microsoft SQL Server.
+- Reuse an existing configured database engine unless the request explicitly asks to migrate or replace it.
 - Never invent credentials, hosts, ports, schemas, datasource names, authentication modes, trust stores, pool sizes, or production connection options.
 - Keep secrets externalized through environment variables or the platform secret/configuration mechanism.
 - Flyway owns schema evolution. Hibernate should validate deployed schemas rather than create or mutate them.
@@ -14,7 +23,7 @@ Use these rules whenever persistence, datasource configuration, migrations, or d
 
 ## SQL Server reference standard
 
-For Microsoft SQL Server:
+For Microsoft SQL Server, which is the default for new generated persistent services:
 
 - JDBC driver: `com.microsoft.sqlserver.jdbc.SQLServerDriver`.
 - Maven driver artifact: `com.microsoft.sqlserver:mssql-jdbc`.
@@ -28,7 +37,7 @@ For Microsoft SQL Server:
 
 ## Local development with Docker Compose
 
-When SQL Server is the selected production engine, prefer SQL Server locally as well.
+For new generated persistent services, use SQL Server locally as well.
 
 A generated SQL Server project may use `mcr.microsoft.com/mssql/server:2022-latest` on port `1433` and create its explicitly requested local database through a one-shot initialization service.
 
@@ -52,15 +61,15 @@ Rules:
 
 ### Complete local microservice stack
 
-For a newly generated persistent microservice, Compose must run the application as well as the database. Starting only the database is insufficient unless the user explicitly asks for a database-only development stack.
+For a newly generated persistent microservice, Compose must run the application as well as SQL Server. Starting only the database is insufficient unless the user explicitly asks for a database-only development stack.
 
 Include:
 
-- a multi-stage `Dockerfile` that builds with the repository Maven/Gradle wrapper and runs the packaged application on a smaller JRE image;
+- a multi-stage `Dockerfile` that builds with the repository Maven Wrapper and runs the packaged application on a smaller JRE image;
 - a `.dockerignore` that excludes build output, VCS metadata, IDE files, and other irrelevant local content;
 - a non-root runtime user when the selected base image supports it;
 - an application service built from the local `Dockerfile`;
-- the selected database service backed by a named volume;
+- the SQL Server service backed by a named volume;
 - database and application health checks;
 - an idempotent one-shot database initialization service when the engine image does not create the requested database itself;
 - dependency conditions that wait for database health and successful initialization rather than relying only on container start order;
@@ -82,12 +91,12 @@ Treat the stack as ready only when the database and application report healthy a
 
 ### Persistence verification
 
-For a new persistent service, verify the storage path end to end against the actual database engine:
+For a new persistent service, verify the storage path end to end against SQL Server:
 
 1. Start the complete stack with `docker compose up -d --build`.
 2. Wait for the application and database health checks to pass.
 3. Create a uniquely identifiable record through the public HTTP API using `curl` and capture its identifier, HTTP status, and response body.
-4. Query the application table directly using the database container's native client and confirm the created values.
+4. Query the application table directly using the SQL Server container's native client and confirm the created values.
 5. Run `docker compose down` without `-v`, then start the stack again with `docker compose up -d`.
 6. Retrieve the same identifier through the API and require a successful status and matching response.
 7. Query the table directly again and confirm that the same row still exists.
@@ -159,7 +168,7 @@ New repositories and entities must be attached to the datasource that owns that 
 
 ## Environment strategy
 
-Prefer one codebase with environment-specific connection configuration:
+Prefer one codebase with environment-specific SQL Server connection configuration:
 
 - local: Docker Compose SQL Server with SQL authentication;
 - deployed/corporate: externally supplied JDBC URL, credentials, TLS/authentication and trust-store settings;
@@ -180,7 +189,6 @@ A generated simple single-datasource application may expose `DB_URL`, `DB_USERNA
 Before generating a persistent feature, determine:
 
 - feature name and API base path;
-- database engine;
 - datasource/persistence unit when more than one exists;
 - schema;
 - fields and Java types;
@@ -193,4 +201,4 @@ Before generating a persistent feature, determine:
 - required indexes;
 - migration requirements.
 
-Do not invent missing domain requirements. Follow existing project conventions when they resolve an unspecified implementation detail.
+The database engine does not need to be requested for a new generated service: use SQL Server by default. Do not invent missing domain requirements. Follow existing project conventions when they resolve an unspecified implementation detail.
