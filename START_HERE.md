@@ -4,6 +4,19 @@ This repository is a ruleset for AI coding agents. It intentionally contains no 
 
 Before generating or modifying code, the agent must read `AGENTS.md` and every relevant document under `docs/`. Any persistence task must include `docs/database.md`.
 
+## Default generation baseline
+
+Unless the user explicitly requests otherwise, generate new Spring Boot services with:
+
+- Java 21;
+- Maven Wrapper;
+- Microsoft SQL Server;
+- SQL Server-compatible Flyway migrations;
+- Docker Compose with the application and SQL Server;
+- externalized deployed credentials and connection settings.
+
+Do not substitute H2, PostgreSQL, MySQL, or another database for SQL Server in a newly generated persistent service unless the user explicitly asks for a different engine.
+
 ## Example: generate a SQL Server project
 
 ```text
@@ -11,9 +24,9 @@ Read AGENTS.md completely and read every relevant file under docs/
 before generating code. Persistence work must follow docs/database.md.
 
 Create a complete Spring Boot application from scratch with:
-- Java 25
+- Java 21
 - Spring Boot 4.x
-- Maven
+- Maven Wrapper
 - Microsoft SQL Server
 - Spring Data JPA
 - Lombok
@@ -79,5 +92,7 @@ the volume, and verify the same record again through the API and SQL Server.
 ## Existing corporate datasource
 
 If the target application already exposes a named datasource such as `spring.datasource.sqlserverdb`, do not replace it with the simple reference-app datasource. Inspect its datasource configuration, persistence unit, entity manager, transaction manager, repository ownership, secret injection, NTLM/TLS/trust-store settings and Hikari configuration, then extend the existing pattern.
+
+If an existing target project already uses a different database engine, preserve it unless the user explicitly requests migration to SQL Server. The SQL Server default applies to new generated persistent services and to requests where no existing datasource determines the engine.
 
 The local Docker configuration is a developer convenience. It must not overwrite corporate authentication or secret-management conventions.
