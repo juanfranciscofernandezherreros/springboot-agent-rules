@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Informe de generación — orders-api</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; color: #17202a; max-width: 1050px; margin: 40px auto; padding: 0 24px; }
+    h1, h2 { color: #123b5d; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0 30px; }
+    th, td { border: 1px solid #ccd6dd; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #eaf2f8; }
+    code { background: #f3f5f7; padding: 1px 4px; border-radius: 3px; }
+    .ok { color: #18794e; font-weight: 700; }
+    .note { background: #fff8db; border-left: 4px solid #d49b00; padding: 12px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Informe de generación de <code>orders-api</code></h1>
+  <p>Fecha de ejecución: 16 de septiembre de 2026. Este documento registra los incidentes reales ocurridos durante la generación y verificación del microservicio.</p>
+
+  <h2>Resultado final</h2>
+  <p class="ok">Completado correctamente.</p>
+  <ul>
+    <li><code>mvnw.cmd spotless:check</code>: correcto.</li>
+    <li><code>mvnw.cmd verify</code>: correcto; 5 pruebas superadas.</li>
+    <li>Flyway validó y aplicó la migración SQL Server.</li>
+    <li>API y SQL Server quedaron saludables.</li>
+    <li>Se creó una orden, se comprobó directamente en SQL Server, se recrearon contenedores sin <code>-v</code> y se comprobó la misma orden de nuevo por API y SQL.</li>
+    <li>Volumen retenido: <code>orders-api_orders_sqlserver_data</code>.</li>
+  </ul>
+
+  <h2>Fallos e incidencias</h2>
+  <table>
+    <thead><tr><th>#</th><th>Incidencia</th><th>Causa</th><th>Corrección</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>La primera lectura de archivos falló con un error del sandbox (<code>apply deny-read ACLs</code>).</td><td>Limitación transitoria del helper de filesystem.</td><td>Se solicitó autorización para una lectura no destructiva y se leyeron <code>AGENTS.md</code>, <code>START_HERE.md</code> y todos los documentos relevantes.</td></tr>
+      <tr><td>2</td><td>Spotless 2.51.0 no existía en Maven Central.</td><td>Versión inicial incorrecta.</td><td>Se consultó el metadato oficial de Maven Central y se usó Spotless 3.10.2.</td></tr>
+      <tr><td>3</td><td>La prueba MVC no compilaba: <code>org.springframework.boot.test.mock.mockito.MockitoBean</code> no existía.</td><td>Cambio de paquete en Spring Boot 4 / Spring Framework 7.</td><td>Se migró a <code>org.springframework.test.context.bean.override.mockito.MockitoBean</code>.</td></tr>
+      <tr><td>4</td><td>La corrección anterior introdujo un BOM UTF-8 y Java informó <code>illegal character: '\ufeff'</code>.</td><td>La escritura PowerShell usó una codificación con BOM.</td><td>Se reescribió el archivo en UTF-8 sin BOM y Spotless volvió a pasar.</td></tr>
+      <tr><td>5</td><td>El primer arranque Compose no pudo reservar el puerto 1433.</td><td>El puerto ya estaba ocupado por otro proceso/contenedor local.</td><td>Se usó el puerto de host 1434, manteniendo 1433 dentro de la red Compose.</td></tr>
+      <tr><td>6</td><td>El siguiente arranque no pudo reservar el puerto 8080.</td><td>El puerto ya estaba ocupado localmente.</td><td>Se usó el puerto de host 8081; la aplicación sigue escuchando en 8080 dentro del contenedor.</td></tr>
+      <tr><td>7</td><td>La API no encontraba la base de datos <code>orders</code>.</td><td>Las comillas del comando de inicialización Compose se transformaron y la condición SQL quedó mal formada.</td><td>Se sustituyó la condición por una expresión T-SQL idempotente sin comillas conflictivas y se recrearon contenedores sin eliminar el volumen.</td></tr>
+      <tr><td>8</td><td>Hibernate indicó que faltaba la tabla <code>orders</code>.</td><td>En Spring Boot 4, tener solo <code>flyway-core</code> y el módulo SQL Server no activaba la autoconfiguración requerida.</td><td>Se añadió <code>spring-boot-starter-flyway</code>. Los logs confirmaron la validación de la migración V1 antes de validar Hibernate.</td></tr>
+      <tr><td>9</td><td>El primer intento del script de persistencia se detenía tras el POST.</td><td>El ejecutable <code>bash</code> resolvía a WSL, donde Docker no estaba integrado.</td><td>Se ejecutó con Git Bash y se añadieron llamadas Compose compatibles con la conversión de rutas de MSYS.</td></tr>
+      <tr><td>10</td><td>Durante el reinicio, algunas llamadas iniciales a health devolvieron respuesta vacía.</td><td>La aplicación todavía estaba iniciando.</td><td>El script tenía reintentos acotados; terminó cuando la API estuvo lista. El estado final fue saludable.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Preguntas de autorización realizadas</h2>
+  <p>Las preguntas no fueron decisiones de producto. Fueron solicitudes obligatorias del entorno para ejecutar acciones locales con permisos elevados:</p>
+  <ul>
+    <li>Leer las instrucciones y estándares del repositorio.</li>
+    <li>Consultar Maven y Docker instalados.</li>
+    <li>Descargar Maven Wrapper, dependencias y el plugin Spotless.</li>
+    <li>Construir, formatear y ejecutar pruebas.</li>
+    <li>Validar, construir y arrancar Docker Compose.</li>
+    <li>Inspeccionar logs y estado de contenedores para diagnosticar fallos.</li>
+    <li>Recrear contenedores sin borrar volúmenes.</li>
+    <li>Ejecutar las comprobaciones HTTP y SQL Server de persistencia.</li>
+  </ul>
+
+  <h2>Automatización de AGENTS.md</h2>
+  <p>Las reglas de <code>AGENTS.md</code> se pueden convertir en un flujo automático: lectura de reglas, generación, validación estática, formato, pruebas, Compose, HTTP, SQL Server y prueba de persistencia. De hecho, el repositorio ya dispone del CLI <code>agent-rules</code> para orquestar buena parte de ello.</p>
+  <div class="note">
+    <strong>Límite práctico:</strong> la lectura de instrucciones, la generación y las comprobaciones pueden automatizarse; no así los diálogos de permiso impuestos por el sandbox, los puertos ocupados o dependencias externas como Docker, red y Maven Central. El flujo debe detectar estos casos, aplicar alternativas seguras predefinidas (por ejemplo, puertos configurables) o pedir autorización.
+  </div>
+  <p>Para ejecutar la validación automatizada del proyecto generado: <code>agent-rules verify generated/orders-api</code>. En Windows, la parte de shell del script de persistencia debe ejecutarse mediante un Bash con acceso a Docker, como Git Bash configurado adecuadamente.</p>
+</body>
+</html>
