@@ -21,7 +21,9 @@ For Microsoft SQL Server:
 - Flyway SQL Server module: `org.flywaydb:flyway-sqlserver`.
 - Hibernate dialect, only when explicitly configured by the project: `org.hibernate.dialect.SQLServerDialect`.
 - JDBC URL form: `jdbc:sqlserver://<host>:<port>;databaseName=<database>`.
-- Use SQL Server/T-SQL-compatible migrations: `IDENTITY`, `BIT`, `DATETIME2`, SQL Server constraints and index syntax.
+- Use SQL Server/T-SQL-compatible migrations: `IDENTITY`, `BIT`, SQL Server constraints and index syntax.
+- Match temporal SQL types to Java semantics. Map `Instant` and `OffsetDateTime` to `DATETIMEOFFSET`; use `DATETIME2` for `LocalDateTime`. Do not use `DATETIME2` for an `Instant` merely because both contain date and time values.
+- For database-generated UTC/offset timestamps stored as `DATETIMEOFFSET`, prefer an offset-aware default such as `SYSDATETIMEOFFSET()` and confirm that Hibernate schema validation accepts the resulting column type.
 - Do not generate PostgreSQL constructs such as `SERIAL`, PostgreSQL-specific casts, `BOOLEAN` assumptions, expression indexes, or PostgreSQL-only functions.
 
 ## Local development with Docker Compose
@@ -47,6 +49,53 @@ Rules:
 - Do not copy production NTLM, integrated-security, trust-store paths, or production pool sizing into local configuration unless the task explicitly requires reproducing them.
 - `docker compose up -d` should leave the SQL Server service healthy and the reference database created before the application is started.
 - Keep the local database data in a named Docker volume.
+
+### Complete local microservice stack
+
+For a newly generated persistent microservice, Compose must run the application as well as the database. Starting only the database is insufficient unless the user explicitly asks for a database-only development stack.
+
+Include:
+
+- a multi-stage `Dockerfile` that builds with the repository Maven/Gradle wrapper and runs the packaged application on a smaller JRE image;
+- a `.dockerignore` that excludes build output, VCS metadata, IDE files, and other irrelevant local content;
+- a non-root runtime user when the selected base image supports it;
+- an application service built from the local `Dockerfile`;
+- the selected database service backed by a named volume;
+- database and application health checks;
+- an idempotent one-shot database initialization service when the engine image does not create the requested database itself;
+- dependency conditions that wait for database health and successful initialization rather than relying only on container start order;
+- application datasource environment variables whose container hostname is the Compose database service name, not `localhost`;
+- an exposed application port, preferably overridable by an environment variable when that matches project conventions;
+- restart behavior appropriate for a local long-running application service.
+
+The application container must run the same artifact and configuration model used outside Docker. Do not add a second source tree, bypass Flyway, or let Hibernate create the deployed schema just to make Compose start.
+
+Validate the Compose model before startup:
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps -a
+```
+
+Treat the stack as ready only when the database and application report healthy and every required one-shot initializer exits with code `0`. If startup fails, inspect the relevant Compose logs and fix the root cause before running API checks.
+
+### Persistence verification
+
+For a new persistent service, verify the storage path end to end against the actual database engine:
+
+1. Start the complete stack with `docker compose up -d --build`.
+2. Wait for the application and database health checks to pass.
+3. Create a uniquely identifiable record through the public HTTP API using `curl` and capture its identifier, HTTP status, and response body.
+4. Query the application table directly using the database container's native client and confirm the created values.
+5. Run `docker compose down` without `-v`, then start the stack again with `docker compose up -d`.
+6. Retrieve the same identifier through the API and require a successful status and matching response.
+7. Query the table directly again and confirm that the same row still exists.
+8. Identify and report the named volume that retained the data.
+
+Never run `docker compose down -v`, `docker volume rm`, or an equivalent volume-deleting command as part of this check. Deleting the volume invalidates the persistence proof and is destructive unless the user explicitly requests a clean reset.
+
+Use unique test values so repeated verification runs do not collide with uniqueness constraints. Do not claim persistence from an API response alone: the direct database query before and after container recreation is required evidence.
 
 ## Deployed/corporate SQL Server configuration
 

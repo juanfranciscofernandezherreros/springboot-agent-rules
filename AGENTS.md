@@ -21,6 +21,10 @@ Before modifying or generating code:
 9. Prefer existing patterns over inventing new abstractions.
 10. If generating a project from scratch, create all files necessary for it to build and run.
 11. For a persistent project, ensure the selected database can be started locally and that the application configuration, JDBC driver, Flyway module, migrations, and documentation agree on the same engine.
+12. A new persistent microservice must include a production-style `Dockerfile`, `.dockerignore`, and a Docker Compose stack that starts both the application and its database with health-aware dependencies and persistent database storage.
+13. Do not describe a generated microservice as tested merely because unit tests pass. Build it, start the complete Compose stack, exercise the real HTTP API with `curl`, and verify the resulting row directly in the selected database.
+14. Prove persistence by recreating the containers without deleting their named volumes, then read the same record through both the API and a direct database query.
+15. Report concrete verification evidence: build/test result, container health, HTTP status and response, database row, restart result, and persistent volume name.
 
 ## Stack
 
@@ -31,6 +35,8 @@ The reference application currently demonstrates Microsoft SQL Server. The rules
 ## Database and datasource rules
 
 `docs/database.md` is the source of truth for datasource, SQL Server, Docker Compose, Flyway, multi-datasource, secret handling, and environment rules.
+
+`docs/testing.md` is the source of truth for automated tests and the containerized runtime acceptance test required for newly generated persistent microservices.
 
 Before creating or changing persistence code:
 
@@ -151,3 +157,5 @@ Not every feature needs every file. Add a layer only when it actually carries we
 - Use `var` in controllers and tests; explicit types in services, mappers, and the rest of production code.
 - No existence checks or business logic in controllers.
 - `@Transactional` belongs at class level on service implementations; use `readOnly = true` for read-only services/paths where applicable.
+- A persistent service is not complete until `docker compose up -d --build` starts the API and database successfully and a create/restart/read persistence check passes.
+- Never use `docker compose down -v` during a persistence check. Volume deletion is destructive and requires an explicit request.
