@@ -41,12 +41,12 @@ com/<company>/<app>/<feature>/
 
 Controllers handle HTTP concerns only. Services own business logic and transaction boundaries. Models contain no JPA annotations. Persistence is isolated in entities/repositories. Explicit mappers connect DTOs, models, and entities.
 
-## Target stack
+## Default stack
 
-The default stack is:
+Unless explicitly overridden, newly generated projects use:
 
 - Java 21
-- Spring Boot 4.0.0
+- Spring Boot 4.x
 - Maven Wrapper
 - Spring Web MVC
 - Spring Data JPA
@@ -58,9 +58,11 @@ The default stack is:
 - JUnit 6, Mockito, and AssertJ
 - Spotless with Palantir Java Format
 
-New generated persistent services use SQL Server by default. Do not substitute H2, PostgreSQL, MySQL, or another database unless the user explicitly requests a different engine or an existing project already defines another datasource that must be preserved.
+New persistent services use SQL Server by default. Do not silently substitute H2, PostgreSQL, MySQL, or another database.
 
-For persistence/integration behavior that depends on SQL Server semantics, the rules require testing against SQL Server rather than assuming H2 is equivalent.
+When working inside an existing project, preserve its already configured datasource and database engine unless the user explicitly requests a migration or replacement.
+
+For persistence and integration behavior that depends on database semantics, test against SQL Server rather than assuming H2 is equivalent.
 
 ## Generated local stack
 
@@ -106,32 +108,56 @@ Generated Maven projects must provide the wrapper and pass:
 ./mvnw spotless:check && ./mvnw verify
 ```
 
-## Generating a new feature
+## Recommended prompt
 
-A persistent feature request should specify, or allow the existing project to determine:
+Because Java 21, Maven Wrapper, SQL Server, Flyway, Docker and the testing strategy are already defined by the repository, prompts do not need to repeat those defaults.
 
-- feature and API path;
-- datasource when more than one exists;
-- schema when relevant;
-- fields and Java types;
-- validation/nullability;
-- unique constraints;
-- relationships;
-- CRUD operations;
-- searchable/filterable fields;
-- indexes/migration requirements.
-
-Unless explicitly overridden, the database engine is SQL Server.
-
-Example:
+For example, to generate a complete microservice:
 
 ```text
-Read AGENTS.md completely and every relevant document under docs/.
-Persistence work must follow docs/database.md.
+Read `AGENTS.md` completely and read every relevant file under `docs/` before generating code.
 
-Create a Customer CRUD feature.
+Create a complete Spring Boot microservice following this repository's rules.
 
-Database: SQL Server
+Project:
+- name: orders-api
+- group: com.acme
+- artifact: orders-api
+- base package: com.acme.orders
+
+Initial feature: Order CRUD
+
+Fields:
+- id: Long, generated primary key
+- customerReference: String, required, max 100
+- status: enum, required
+- totalAmount: BigDecimal, required, positive
+- createdAt: Instant, generated on create
+
+Operations:
+- POST /orders
+- GET /orders/{id}
+- GET /orders/search with pagination and filters by customerReference and status
+- PATCH /orders/{id}
+- DELETE /orders/{id}
+
+Generate everything required to build, test, run and verify the application.
+
+Follow the repository defaults for Java, build tooling, database, persistence, migrations, Docker and testing.
+
+Run formatting and the complete test suite.
+Then start the complete Docker Compose stack, create a record through the real HTTP API, verify it directly in SQL Server, recreate the containers without deleting the volume, and verify that the same record still exists through both the API and SQL Server.
+
+Do not stop until the generated project builds successfully and all required verification steps pass.
+```
+
+For a feature inside an existing project, the prompt can be shorter:
+
+```text
+Read `AGENTS.md` completely and every relevant file under `docs/`.
+
+Add a Customer CRUD feature following the existing project conventions and this repository's rules.
+
 Base path: /customers
 
 Fields:
@@ -148,13 +174,11 @@ Operations:
 - patch
 - delete
 
-Add the SQL Server-compatible Flyway migration.
-Add service unit tests and MVC controller tests.
-Do not introduce unrelated dependencies.
-Run formatting and tests when finished.
+Add the required migration and tests.
+Run formatting and the relevant test suite when finished.
 ```
 
-For a complete generation prompt, see [`START_HERE.md`](START_HERE.md).
+For a more explicit starter prompt, see [`START_HERE.md`](START_HERE.md).
 
 ## Principle
 
