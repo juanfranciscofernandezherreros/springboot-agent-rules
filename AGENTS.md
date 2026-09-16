@@ -30,7 +30,7 @@ Before modifying or generating code:
 
 Java 25 · Spring Boot 4.x · Maven or Gradle · Spring Data JPA · Lombok · JUnit 6 + Mockito + AssertJ.
 
-The reference application currently demonstrates Microsoft SQL Server. The rules remain reusable for another database only when the user or the existing project explicitly selects it.
+The default persistence example is Microsoft SQL Server. The rules remain reusable for another database only when the user or the existing project explicitly selects it.
 
 ## Database and datasource rules
 

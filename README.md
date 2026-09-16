@@ -2,10 +2,7 @@
 
 A practical, opinionated ruleset for AI coding agents that generate and maintain Spring Boot backends with consistent architecture, naming, testing, database handling, and code style.
 
-The repository combines:
-
-1. **Agent instructions and engineering standards** in [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/).
-2. **A runnable reference Task API** showing those conventions in a real Spring Boot project.
+The repository contains agent instructions and engineering standards in [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/). It intentionally contains no generated microservice, build output, or database runtime.
 
 The goal is to give an AI coding agent enough explicit context to produce code that looks like it belongs to the same codebase every time, including database-specific behavior.
 
@@ -44,9 +41,9 @@ com/<company>/<app>/<feature>/
 
 Controllers handle HTTP concerns only. Services own business logic and transaction boundaries. Models contain no JPA annotations. Persistence is isolated in entities/repositories. Explicit mappers connect DTOs, models, and entities.
 
-## Reference stack
+## Target stack
 
-The included reference application uses:
+The rules target:
 
 - Java 25
 - Spring Boot 4.0.0
@@ -58,55 +55,22 @@ The included reference application uses:
 - Microsoft JDBC Driver for SQL Server
 - Flyway SQL Server support
 - Lombok
-- JUnit Platform
-- Cucumber
-- H2 only for the lightweight Cucumber test profile, configured in SQL Server compatibility mode
+- JUnit 6, Mockito, and AssertJ
 - Spotless with Palantir Java Format
 
 For persistence/integration behavior that depends on SQL Server semantics, the rules require testing against SQL Server rather than assuming H2 is equivalent.
 
-## Local SQL Server
+## Generated local stack
 
-The reference application runs against a real SQL Server container locally.
+New persistent microservices must include a complete Docker Compose stack containing the application, SQL Server, health checks, database initialization, and a named database volume.
 
-Start it with:
-
-```bash
-docker compose up -d
-```
-
-The Compose setup starts SQL Server on port `1433`, waits for it to become healthy, and creates the `tasks` database through a one-shot initialization service.
-
-Local development defaults:
-
-```text
-Database: tasks
-Username: sa
-Password: LocalPassw0rd!
-Port: 1433
-```
-
-These credentials are development-only and are not production defaults.
-
-Run the application:
+The generated project must be startable with:
 
 ```bash
-./mvnw spring-boot:run
+docker compose up -d --build
 ```
 
-The default local JDBC URL is:
-
-```text
-jdbc:sqlserver://localhost:1433;databaseName=tasks;encrypt=true;trustServerCertificate=true
-```
-
-Override connection values using:
-
-```text
-DB_URL
-DB_USERNAME
-DB_PASSWORD
-```
+The verification process creates a record through the real HTTP API, confirms it directly in SQL Server, recreates the containers without deleting the volume, and verifies the same record again through both paths. See [`database.md`](docs/database.md) and [`testing.md`](docs/testing.md).
 
 ## Corporate SQL Server environments
 
@@ -128,40 +92,16 @@ See [`docs/database.md`](docs/database.md) for the complete rules.
 
 ## Flyway
 
-Flyway owns schema evolution. The reference application uses SQL Server-compatible migrations and Hibernate validates the schema with `ddl-auto: validate`.
+Flyway owns schema evolution. Generated SQL Server projects use SQL Server-compatible migrations, and Hibernate validates the schema with `ddl-auto: validate`.
 
 New migrations must use SQL Server/T-SQL-compatible types and syntax when SQL Server is the selected engine.
 
-## Task API
+## Generated project quality gate
 
-The reference API exposes:
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/tasks` | Create a task |
-| `GET` | `/tasks/{id}` | Get a task by ID |
-| `GET` | `/tasks/search` | Search and paginate tasks |
-| `PATCH` | `/tasks/{id}` | Partially update a task |
-| `DELETE` | `/tasks/{id}` | Delete a task |
-
-## Development commands
-
-Run tests:
+Generated Maven projects must provide the wrapper and pass:
 
 ```bash
-./mvnw test
-```
-
-Apply formatting:
-
-```bash
-./mvnw spotless:apply
-```
-
-Run the full verification lifecycle:
-
-```bash
-./mvnw verify
+./mvnw spotless:check && ./mvnw verify
 ```
 
 ## Generating a new feature
@@ -214,7 +154,7 @@ For a complete generation prompt, see [`START_HERE.md`](START_HERE.md).
 
 ## Principle
 
-The repository is intentionally opinionated. The important part is not that every project use exactly these conventions; it is that architecture, database behavior, environment configuration, and testing decisions are explicit enough that humans and coding agents can apply them consistently.
+The repository is intentionally opinionated. It stores only reusable rules and prompts; generated applications belong in their own directories and repositories.
 
 ## License
 

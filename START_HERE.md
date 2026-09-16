@@ -1,6 +1,6 @@
 # Start here
 
-This repository is both a ruleset for AI coding agents and a runnable reference Spring Boot application.
+This repository is a ruleset for AI coding agents. It intentionally contains no runnable Spring Boot application; generate each microservice in its own directory or repository.
 
 Before generating or modifying code, the agent must read `AGENTS.md` and every relevant document under `docs/`. Any persistence task must include `docs/database.md`.
 
@@ -59,7 +59,9 @@ Generate everything required to build and run the application, including:
 - Maven Wrapper
 - main Spring Boot application class
 - application.yml
-- Docker Compose for SQL Server
+- production-style multi-stage Dockerfile and .dockerignore
+- Docker Compose for both the application and SQL Server
+- health checks, health-aware startup ordering, and a named SQL Server volume
 - SQL Server JDBC and Flyway support
 - SQL Server-compatible Flyway migrations
 - feature packages and layers
@@ -68,7 +70,10 @@ Generate everything required to build and run the application, including:
 - MVC tests
 
 Follow AGENTS.md strictly.
-Run formatting and tests when finished and fix any failures.
+Run formatting and the complete test suite when finished and fix any failures.
+Then start the complete stack with docker compose, create a record with curl,
+verify the row directly in SQL Server, recreate the containers without deleting
+the volume, and verify the same record again through the API and SQL Server.
 ```
 
 ## Existing corporate datasource

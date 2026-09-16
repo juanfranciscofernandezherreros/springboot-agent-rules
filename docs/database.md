@@ -30,14 +30,14 @@ For Microsoft SQL Server:
 
 When SQL Server is the selected production engine, prefer SQL Server locally as well.
 
-The reference application uses `mcr.microsoft.com/mssql/server:2022-latest` on port `1433` and creates the local `tasks` database through a one-shot initialization service.
+A generated SQL Server project may use `mcr.microsoft.com/mssql/server:2022-latest` on port `1433` and create its explicitly requested local database through a one-shot initialization service.
 
 Local defaults are development-only:
 
 ```text
 host: localhost
 port: 1433
-database: tasks
+database: <requested-local-database>
 username: sa
 password: LocalPassw0rd!
 ```
@@ -165,7 +165,7 @@ Prefer one codebase with environment-specific connection configuration:
 - deployed/corporate: externally supplied JDBC URL, credentials, TLS/authentication and trust-store settings;
 - tests: unit/MVC tests should avoid a database when possible; persistence/integration tests should use SQL Server when database behavior is under test.
 
-The application may expose `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` for a simple single-datasource reference app. Existing enterprise applications may instead use named datasource properties and platform-specific secret injection; preserve the project's established convention.
+A generated simple single-datasource application may expose `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD`. Existing enterprise applications may instead use named datasource properties and platform-specific secret injection; preserve the project's established convention.
 
 ## Flyway
 
