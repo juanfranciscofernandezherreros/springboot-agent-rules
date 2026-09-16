@@ -28,6 +28,7 @@ For Microsoft SQL Server, which is the default for new generated persistent serv
 - JDBC driver: `com.microsoft.sqlserver.jdbc.SQLServerDriver`.
 - Maven driver artifact: `com.microsoft.sqlserver:mssql-jdbc`.
 - Flyway SQL Server module: `org.flywaydb:flyway-sqlserver`.
+- For Spring Boot 4.x, include `org.springframework.boot:spring-boot-starter-flyway` so Flyway auto-configuration runs before Hibernate schema validation. `flyway-core` and a database module alone are not a substitute for the starter in generated Boot 4 applications.
 - Hibernate dialect, only when explicitly configured by the project: `org.hibernate.dialect.SQLServerDialect`.
 - JDBC URL form: `jdbc:sqlserver://<host>:<port>;databaseName=<database>`.
 - Use SQL Server/T-SQL-compatible migrations: `IDENTITY`, `BIT`, SQL Server constraints and index syntax.
@@ -75,6 +76,7 @@ Include:
 - dependency conditions that wait for database health and successful initialization rather than relying only on container start order;
 - application datasource environment variables whose container hostname is the Compose database service name, not `localhost`;
 - an exposed application port, preferably overridable by an environment variable when that matches project conventions;
+- host-port mappings that are independently overridable (for example `${APP_PORT:-8080}:8080` and `${SQLSERVER_PORT:-1433}:1433`); when a default host port is occupied, select an unused host port without changing the container port or Compose service hostname;
 - restart behavior appropriate for a local long-running application service.
 
 The application container must run the same artifact and configuration model used outside Docker. Do not add a second source tree, bypass Flyway, or let Hibernate create the deployed schema just to make Compose start.
@@ -88,6 +90,8 @@ docker compose ps -a
 ```
 
 Treat the stack as ready only when the database and application report healthy and every required one-shot initializer exits with code `0`. If startup fails, inspect the relevant Compose logs and fix the root cause before running API checks.
+
+Compose database initialization commands must be idempotent and must be rendered with `docker compose config` before startup. Verify that SQL quoting survives Compose and shell parsing; do not rely on nested quote escaping that changes the resulting T-SQL command.
 
 ### Persistence verification
 
@@ -105,6 +109,8 @@ For a new persistent service, verify the storage path end to end against SQL Ser
 Never run `docker compose down -v`, `docker volume rm`, or an equivalent volume-deleting command as part of this check. Deleting the volume invalidates the persistence proof and is destructive unless the user explicitly requests a clean reset.
 
 Use unique test values so repeated verification runs do not collide with uniqueness constraints. Do not claim persistence from an API response alone: the direct database query before and after container recreation is required evidence.
+
+On Windows, the verification runner must select a Bash executable that can invoke Docker (for example Git Bash when Docker Desktop's WSL integration is unavailable). Avoid MSYS path conversion for container paths such as `/opt/mssql-tools18/bin/sqlcmd`, for example by using `MSYS_NO_PATHCONV=1` for the relevant Docker CLI invocation.
 
 ## Deployed/corporate SQL Server configuration
 

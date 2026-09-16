@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -61,4 +62,12 @@ def verify_project(project_dir: Path, *, runtime: bool = True) -> None:
     verify_script = project_dir / "scripts/verify-persistence.sh"
     if os.name != "nt":
         verify_script.chmod(verify_script.stat().st_mode | 0o111)
-    _run([str(verify_script)], project_dir)
+        _run([str(verify_script)], project_dir)
+        return
+
+    git_bash = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
+    bash = str(git_bash) if git_bash.is_file() else shutil.which("bash")
+    if not bash:
+        raise CommandError("A Bash executable with Docker CLI access is required to run scripts/verify-persistence.sh")
+
+    _run([bash, str(verify_script)], project_dir)

@@ -52,3 +52,5 @@ docker compose ps -a
 ```
 
 Use `--skip-runtime` when Docker/SQL Server verification is intentionally unavailable, or `--skip-verify` on `create` when only generation is desired.
+
+On Windows, `verify` must run the script through a detected Bash executable with Docker access. Prefer Git Bash when Docker Desktop's WSL integration is not enabled, and preserve POSIX container paths for `docker compose exec` calls.

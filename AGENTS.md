@@ -23,11 +23,13 @@ Before modifying or generating code:
 11. New generated projects use Java 21 unless the user explicitly requests another supported Java version.
 12. New persistent projects use Microsoft SQL Server by default. Do not silently substitute H2, PostgreSQL, MySQL, or another engine.
 13. For an existing project, preserve an already configured datasource and database engine unless the user explicitly requests a migration or replacement.
-14. For a persistent project, ensure SQL Server or the explicitly selected existing engine can be started locally and that the application configuration, JDBC driver, Flyway module, migrations, and documentation agree on the same engine.
+14. For a persistent project, ensure SQL Server or the explicitly selected existing engine can be started locally and that the application configuration, JDBC driver, the Spring Boot Flyway starter, the database-specific Flyway module, migrations, and documentation agree on the same engine.
 15. A new persistent microservice must include a production-style `Dockerfile`, `.dockerignore`, and a Docker Compose stack that starts both the application and SQL Server with health-aware dependencies and persistent database storage.
 16. Do not describe a generated microservice as tested merely because unit tests pass. Build it, start the complete Compose stack, exercise the real HTTP API with `curl`, and verify the resulting row directly in SQL Server.
 17. Prove persistence by recreating the containers without deleting their named volumes, then read the same record through both the API and a direct SQL Server query.
 18. Report concrete verification evidence: build/test result, container health, HTTP status and response, database row, restart result, and persistent volume name.
+19. Before choosing versioned Maven plugins or framework test APIs, verify that the selected version and import exist for the declared Spring Boot version. Do not guess plugin versions.
+20. On Windows, generate UTF-8 source files without a BOM and make persistence scripts executable with a Bash distribution that has Docker CLI access.
 
 ## Stack
 

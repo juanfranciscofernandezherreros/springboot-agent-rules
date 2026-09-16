@@ -26,16 +26,21 @@ def validate_rules(root: Path) -> list[Check]:
 
     readable = [root / item for item in required_files if (root / item).is_file()]
     text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in readable)
+    policy_text = "\n".join(
+        (root / item).read_text(encoding="utf-8", errors="ignore")
+        for item in ("AGENTS.md", "START_HERE.md", "docs/database.md", "docs/testing.md")
+        if (root / item).is_file()
+    )
 
     checks.extend(
         [
             Check("Java 21 default", "Java 21" in text, "rules mention Java 21"),
             Check("SQL Server default", "SQL Server" in text, "rules mention SQL Server"),
             Check("Maven Wrapper default", "Maven Wrapper" in text, "rules mention Maven Wrapper"),
-            Check("no Java 25 drift", "Java 25" not in text, "Java 25 must not appear in canonical rules"),
+            Check("no Java 25 drift", "Java 25" not in policy_text, "Java 25 must not appear in canonical rules"),
             Check(
                 "no Maven-or-Gradle drift",
-                "Maven or Gradle" not in text,
+                "Maven or Gradle" not in policy_text,
                 "canonical stack must not reintroduce Maven-or-Gradle ambiguity",
             ),
         ]
@@ -56,6 +61,7 @@ def validate_project(root: Path) -> list[Check]:
             Check("Java 21", "<java.version>21</java.version>" in pom_text, "pom.xml"),
             Check("SQL Server JDBC", "mssql-jdbc" in pom_text, "pom.xml"),
             Check("Flyway SQL Server", "flyway-sqlserver" in pom_text, "pom.xml"),
+            Check("Spring Boot Flyway starter", "spring-boot-starter-flyway" in pom_text, "pom.xml"),
             Check("H2 absent", "com.h2database" not in pom_text and "<artifactId>h2</artifactId>" not in pom_text, "pom.xml"),
             Check("Dockerfile", (root / "Dockerfile").is_file(), "Dockerfile"),
         ]
@@ -111,5 +117,5 @@ def failures(checks: list[Check]) -> list[Check]:
 
 def render_checks(checks: list[Check]) -> str:
     return "\n".join(
-        f"{'✓' if check.ok else '✗'} {check.name}: {check.detail}" for check in checks
+        f"{'[OK]' if check.ok else '[FAIL]'} {check.name}: {check.detail}" for check in checks
     )

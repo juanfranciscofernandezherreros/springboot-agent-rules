@@ -14,6 +14,8 @@ Automated unit and MVC tests do not replace a runtime acceptance test for a newl
 
 In service unit tests, `@InjectMocks` targets `<Feature>ServiceImpl`, not the interface. Everywhere else, mock the service interface.
 
+For Spring Boot 4.x MVC tests, use `org.springframework.test.context.bean.override.mockito.MockitoBean`; do not use the removed `org.springframework.boot.test.mock.mockito.MockitoBean` package.
+
 ## Style
 
 - snake_case test method names ending in `_ok` / `_ko` where useful.
@@ -52,6 +54,8 @@ When generating a new persistent microservice, or when the user asks to prove th
 6. Use `curl` to retrieve the same record by identifier and require the expected success status and field values.
 7. Query the database table again and require the same row to exist.
 8. Check final container health and report the named database volume.
+
+The verifier must poll health with bounded retries both before the create request and after container recreation. A transient connection failure during startup is not success and must be retried or reported with logs.
 
 The test passes only when all of the following are true:
 
