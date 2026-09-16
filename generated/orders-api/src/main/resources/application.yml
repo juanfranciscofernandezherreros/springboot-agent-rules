@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: orders-api
+  datasource:
+    url: ${DB_URL:jdbc:sqlserver://localhost:1433;databaseName=orders;encrypt=true;trustServerCertificate=true}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:LocalPassw0rd!}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

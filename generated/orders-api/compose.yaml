@@ -1,0 +1,53 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD:-LocalPassw0rd!}
+    ports:
+      - "${SQLSERVER_PORT:-1433}:1433"
+    volumes:
+      - orders-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  database-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD:-LocalPassw0rd!}
+    entrypoint: ["/bin/bash", "-c"]
+    command: >-
+      /opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD"
+      -Q "IF DB_ID(N'orders') IS NULL CREATE DATABASE orders;"
+    restart: "no"
+
+  app:
+    build: .
+    environment:
+      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=orders;encrypt=true;trustServerCertificate=true
+      DB_USERNAME: sa
+      DB_PASSWORD: ${SQLSERVER_SA_PASSWORD:-LocalPassw0rd!}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      database-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  orders-sqlserver-data:

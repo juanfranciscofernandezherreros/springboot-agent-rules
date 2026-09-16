@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Informe de generación: orders-api</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; color: #172033; }
+    h1 { color: #123b67; } h2 { margin-top: 32px; }
+    .ok { border-left: 5px solid #198754; background: #edf9f1; padding: 12px; margin: 12px 0; }
+    .fail { border-left: 5px solid #c43c35; background: #fff0ee; padding: 12px; margin: 12px 0; }
+    code { background: #eef1f5; padding: 2px 4px; }
+  </style>
+</head>
+<body>
+  <h1>Informe de generación: orders-api</h1>
+  <p>Especificación de entrada: <code>examples/orders.yaml</code>.</p>
+  <h2>Correcto</h2>
+  <section class="ok"><strong>Proyecto:</strong> se generó <code>generated/orders-api</code> con Java 21, Spring Boot 4.0.0, Maven Wrapper, SQL Server, Flyway, Docker Compose y la estructura por capas requerida.</section>
+  <section class="ok"><strong>Contrato:</strong> se implementaron creación, consulta por id, búsqueda paginada con filtros, PATCH y borrado para <code>/orders</code>.</section>
+  <section class="ok"><strong>Calidad:</strong> <code>mvnw spotless:apply</code> y <code>mvnw verify</code> finalizaron correctamente; se ejecutaron 3 tests sin fallos.</section>
+  <section class="ok"><strong>Validación estática:</strong> el validador confirmó pom, wrapper, Java 21, JDBC SQL Server, Flyway, ausencia de H2, Dockerfile, Compose, ddl-auto validate, migración y script de persistencia.</section>
+  <h2>Fallos encontrados</h2>
+  <section class="fail"><strong>Inicializador SQL Server:</strong> la combinación de <code>entrypoint: [bash, -c]</code> y un comando YAML plegado separó los argumentos de <code>sqlcmd</code>. El contenedor intentó conectarse a sí mismo y terminó con código 1. Debe renderizarse el comando completo como un único argumento de <code>bash -c</code>, o evitar <code>bash -c</code> y usar una lista de argumentos directa.</section>
+  <section class="fail"><strong>Puerto local:</strong> el puerto 1433 del host estaba ocupado. El Compose sí permite sobrescribirlo mediante <code>SQLSERVER_PORT</code>; el arranque con 1435 alcanzó SQL Server, pero quedó detenido por el inicializador.</section>
+  <section class="fail"><strong>Healthcheck de la API:</strong> el Dockerfile runtime no instala <code>wget</code>, aunque el healthcheck lo usa. El generador debe alinear las utilidades disponibles en la imagen runtime con el comando de healthcheck, por ejemplo instalando wget/curl o usando una comprobación basada en Java.</section>
+  <h2>Mejoras para el generador</h2>
+  <ol>
+    <li>Ejecutar <code>docker compose config</code> y comprobar que los comandos de inicialización siguen siendo una única cadena cuando usan un intérprete de shell.</li>
+    <li>Ejecutar una prueba mínima del healthcheck dentro de la imagen antes de declarar el stack válido.</li>
+    <li>Detectar puertos host ocupados antes del arranque y escoger un puerto libre conservando el puerto interno y el hostname de servicio.</li>
+    <li>No marcar la verificación de persistencia como superada hasta crear el registro, consultarlo por SQL y repetir ambas comprobaciones tras recrear los contenedores.</li>
+  </ol>
+</body>
+</html>
