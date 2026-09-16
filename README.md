@@ -1,10 +1,33 @@
 # Spring Boot Agent Rules
 
-A practical, opinionated ruleset for AI coding agents that generate and maintain Spring Boot backends with consistent architecture, naming, testing, database handling, and code style.
+A practical, opinionated ruleset and Python CLI for AI coding agents that generate and maintain Spring Boot microservices with consistent architecture, naming, testing, SQL Server handling and code style.
 
-The repository contains agent instructions and engineering standards in [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/). It intentionally contains no generated microservice, build output, or database runtime.
+The repository separates three concerns:
 
-The goal is to give an AI coding agent enough explicit context to produce code that looks like it belongs to the same codebase every time, including database-specific behavior.
+- `AGENTS.md` and `docs/` define **how** Spring Boot code must be built.
+- YAML service specifications define **what** microservice or feature must be built.
+- the Python CLI turns the specification into an agent prompt, invokes the configured coding agent, validates the result and can run the full verification flow.
+
+Generated microservices belong under `generated/` by default and are ignored by Git in this rules repository.
+
+## Default stack
+
+Unless explicitly overridden for an existing project, new generated persistent services use:
+
+- Java 21
+- Spring Boot 4.x
+- Maven Wrapper
+- Spring Web MVC
+- Spring Data JPA
+- Bean Validation
+- Microsoft SQL Server
+- Microsoft JDBC Driver for SQL Server
+- Flyway SQL Server support
+- Lombok
+- JUnit 6, Mockito and AssertJ
+- Spotless with Palantir Java Format
+
+SQL Server is the default persistence engine. Do not silently substitute H2, PostgreSQL, MySQL or another engine. Existing projects keep their already configured datasource unless a migration is explicitly requested.
 
 ## Rules
 
@@ -16,13 +39,205 @@ The goal is to give an AI coding agent enough explicit context to produce code t
 | [`annotations.md`](docs/annotations.md) | Annotation usage and placement |
 | [`layered-architecture.md`](docs/layered-architecture.md) | Feature-oriented layered architecture |
 | [`controllers.md`](docs/controllers.md) | REST controller conventions |
-| [`mappers.md`](docs/mappers.md) | DTO, model, and entity mappings |
+| [`mappers.md`](docs/mappers.md) | DTO, model and entity mappings |
 | [`exceptions.md`](docs/exceptions.md) | Application/API error handling |
-| [`testing.md`](docs/testing.md) | Unit and integration testing conventions |
+| [`testing.md`](docs/testing.md) | Unit, MVC, integration and runtime testing conventions |
 | [`logging.md`](docs/logging.md) | Logging conventions |
-| [`database.md`](docs/database.md) | SQL Server, Docker, Flyway, datasources, secrets, and multi-datasource rules |
+| [`database.md`](docs/database.md) | SQL Server, Docker, Flyway, datasources, secrets and multi-datasource rules |
+| [`cli.md`](docs/cli.md) | Python CLI generation and verification workflow |
 
 Persistence work must read `docs/database.md` in addition to the architectural rules.
+
+## Install the CLI
+
+Python 3.11 or newer is required.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+```
+
+You can then use either:
+
+```bash
+agent-rules --help
+```
+
+or:
+
+```bash
+python -m agent_rules --help
+```
+
+## Describe the microservice in YAML
+
+The YAML contains business inputs, not framework boilerplate. Framework and database defaults come from the rules repository.
+
+```yaml
+project:
+  name: orders-api
+  group: com.acme
+  package: com.acme.orders
+
+feature:
+  name: Order
+  basePath: /orders
+
+  fields:
+    - name: id
+      type: Long
+      primaryKey: true
+      generated: true
+
+    - name: customerReference
+      type: String
+      required: true
+      max: 100
+
+    - name: status
+      type: OrderStatus
+      required: true
+
+    - name: totalAmount
+      type: BigDecimal
+      required: true
+      positive: true
+
+    - name: createdAt
+      type: Instant
+      generatedOnCreate: true
+
+  operations:
+    - create
+    - get by id
+    - paginated search
+    - patch
+    - delete
+
+  filters:
+    - customerReference
+    - status
+
+output: generated/orders-api
+```
+
+A complete example is available at [`examples/orders.yaml`](examples/orders.yaml).
+
+## Generate the complete microservice
+
+The CLI is agent-vendor neutral. Configure a coding-agent CLI that accepts a task through standard input:
+
+```bash
+export AGENT_RULES_AGENT_COMMAND='your-agent-cli --non-interactive'
+```
+
+Then run:
+
+```bash
+agent-rules create examples/orders.yaml
+```
+
+The flow is:
+
+```text
+service.yaml
+    ↓
+Python CLI
+    ↓
+complete prompt
+    ↓
+coding agent reads AGENTS.md + docs/
+    ↓
+generates the Spring Boot microservice
+    ↓
+static rule validation
+    ↓
+Maven formatting + tests
+    ↓
+Docker Compose + SQL Server
+    ↓
+HTTP + direct SQL persistence verification
+```
+
+The agent command can also be provided per invocation:
+
+```bash
+agent-rules create examples/orders.yaml \
+  --agent-command 'your-agent-cli --non-interactive'
+```
+
+or in the YAML under `agent.command`.
+
+## Inspect the generated prompt
+
+To see exactly what the coding agent will receive without generating anything:
+
+```bash
+agent-rules prompt examples/orders.yaml
+```
+
+The generated prompt contains the project, feature, fields, operations and filters from YAML and tells the agent to read the canonical repository rules. It also requires a reusable, non-destructive `scripts/verify-persistence.sh` for the generated feature.
+
+## Validate a generated project
+
+```bash
+agent-rules validate generated/orders-api
+```
+
+Static validation checks include:
+
+- Java 21 in `pom.xml`;
+- Maven Wrapper;
+- SQL Server JDBC driver;
+- Flyway SQL Server module;
+- absence of H2;
+- Dockerfile and Docker Compose;
+- SQL Server container;
+- Hibernate `ddl-auto: validate`;
+- Flyway migrations;
+- persistence verification script.
+
+## Full verification
+
+```bash
+agent-rules verify generated/orders-api
+```
+
+The CLI runs the static checks and then:
+
+```bash
+./mvnw spotless:check
+./mvnw verify
+docker compose config
+docker compose up -d --build
+docker compose ps -a
+./scripts/verify-persistence.sh
+```
+
+The generated persistence script must create a unique record through the real HTTP API, verify it directly in SQL Server, recreate the containers without deleting the named volume and verify the same record again through both paths.
+
+For environments without Docker you can still run build verification:
+
+```bash
+agent-rules verify generated/orders-api --skip-runtime
+```
+
+To generate without automatically verifying:
+
+```bash
+agent-rules create examples/orders.yaml --skip-verify
+```
+
+## Validate the rules repository itself
+
+```bash
+agent-rules validate-rules
+```
+
+This catches baseline drift such as reintroducing Java 25 or the old `Maven or Gradle` ambiguity into the canonical documentation.
+
+The included GitHub Actions workflow runs the Python tests and this rules validation on pushes and pull requests.
 
 ## Architecture
 
@@ -39,34 +254,11 @@ com/<company>/<app>/<feature>/
 └── mapper/
 ```
 
-Controllers handle HTTP concerns only. Services own business logic and transaction boundaries. Models contain no JPA annotations. Persistence is isolated in entities/repositories. Explicit mappers connect DTOs, models, and entities.
-
-## Default stack
-
-Unless explicitly overridden, newly generated projects use:
-
-- Java 21
-- Spring Boot 4.x
-- Maven Wrapper
-- Spring Web MVC
-- Spring Data JPA
-- Bean Validation
-- Microsoft SQL Server
-- Microsoft JDBC Driver for SQL Server
-- Flyway SQL Server support
-- Lombok
-- JUnit 6, Mockito, and AssertJ
-- Spotless with Palantir Java Format
-
-New persistent services use SQL Server by default. Do not silently substitute H2, PostgreSQL, MySQL, or another database.
-
-When working inside an existing project, preserve its already configured datasource and database engine unless the user explicitly requests a migration or replacement.
-
-For persistence and integration behavior that depends on database semantics, test against SQL Server rather than assuming H2 is equivalent.
+Controllers handle HTTP concerns only. Services own business logic and transaction boundaries. Models contain no JPA annotations. Persistence is isolated in entities/repositories. Explicit mappers connect DTOs, models and entities.
 
 ## Generated local stack
 
-New persistent microservices must include a complete Docker Compose stack containing the application, SQL Server, health checks, database initialization, and a named database volume.
+New persistent microservices include a complete Docker Compose stack containing the application, SQL Server, health checks, database initialization and a named database volume.
 
 The generated project must be startable with:
 
@@ -74,33 +266,15 @@ The generated project must be startable with:
 docker compose up -d --build
 ```
 
-The verification process creates a record through the real HTTP API, confirms it directly in SQL Server, recreates the containers without deleting the volume, and verifies the same record again through both paths. See [`database.md`](docs/database.md) and [`testing.md`](docs/testing.md).
+Persistence is not considered verified from unit tests or an API response alone. The rules require a direct SQL Server query before and after container recreation while retaining the named volume.
 
 ## Corporate SQL Server environments
 
-Local Docker authentication is intentionally simpler than a corporate deployment.
+Local Docker authentication is intentionally simpler than a corporate deployment. Existing named datasources, TLS/encryption, NTLM/integrated security, trust stores, persistence units, Hikari settings and external secret groups must be preserved rather than replaced with local defaults. Secret values must never be copied into source control.
 
-The rules explicitly cover existing named datasources such as `spring.datasource.sqlserverdb`, including configurations that use:
+See [`docs/database.md`](docs/database.md) for the full contract.
 
-- externally supplied host, port, database, username, and password;
-- TLS/encryption options;
-- NTLM/integrated security;
-- trust stores;
-- named persistence units;
-- datasource-specific Hikari pools;
-- platform secret groups such as `sql-server-billinguser`.
-
-Agents must preserve those project-specific settings rather than replacing them with local defaults. Secret values must never be copied into source control.
-
-See [`docs/database.md`](docs/database.md) for the complete rules.
-
-## Flyway
-
-Flyway owns schema evolution. Generated SQL Server projects use SQL Server-compatible migrations, and Hibernate validates the schema with `ddl-auto: validate`.
-
-New migrations must use SQL Server/T-SQL-compatible types and syntax.
-
-## Generated project quality gate
+## Quality gate
 
 Generated Maven projects must provide the wrapper and pass:
 
@@ -108,81 +282,25 @@ Generated Maven projects must provide the wrapper and pass:
 ./mvnw spotless:check && ./mvnw verify
 ```
 
-## Recommended prompt
+For persistent services, that build gate is followed by the Docker Compose and persistence verification described above.
 
-Because Java 21, Maven Wrapper, SQL Server, Flyway, Docker and the testing strategy are already defined by the repository, prompts do not need to repeat those defaults.
+## Start manually without the CLI
 
-For example, to generate a complete microservice:
-
-```text
-Read `AGENTS.md` completely and read every relevant file under `docs/` before generating code.
-
-Create a complete Spring Boot microservice following this repository's rules.
-
-Project:
-- name: orders-api
-- group: com.acme
-- artifact: orders-api
-- base package: com.acme.orders
-
-Initial feature: Order CRUD
-
-Fields:
-- id: Long, generated primary key
-- customerReference: String, required, max 100
-- status: enum, required
-- totalAmount: BigDecimal, required, positive
-- createdAt: Instant, generated on create
-
-Operations:
-- POST /orders
-- GET /orders/{id}
-- GET /orders/search with pagination and filters by customerReference and status
-- PATCH /orders/{id}
-- DELETE /orders/{id}
-
-Generate everything required to build, test, run and verify the application.
-
-Follow the repository defaults for Java, build tooling, database, persistence, migrations, Docker and testing.
-
-Run formatting and the complete test suite.
-Then start the complete Docker Compose stack, create a record through the real HTTP API, verify it directly in SQL Server, recreate the containers without deleting the volume, and verify that the same record still exists through both the API and SQL Server.
-
-Do not stop until the generated project builds successfully and all required verification steps pass.
-```
-
-For a feature inside an existing project, the prompt can be shorter:
+The CLI is the recommended orchestration path, but the rules remain usable directly with any coding agent. A minimal manual task is:
 
 ```text
-Read `AGENTS.md` completely and every relevant file under `docs/`.
-
-Add a Customer CRUD feature following the existing project conventions and this repository's rules.
-
-Base path: /customers
-
-Fields:
-- id: Long, generated primary key
-- firstName: String, required, max 100
-- lastName: String, required, max 100
-- email: String, required, valid email, unique, max 255
-- active: Boolean, required, default true
-
-Operations:
-- create
-- get by id
-- paginated search by lastName/email/active
-- patch
-- delete
-
-Add the required migration and tests.
-Run formatting and the relevant test suite when finished.
+Read AGENTS.md completely and every relevant document under docs/.
+Create a complete Spring Boot microservice for the requested feature.
+Use repository defaults for Java, build tooling, SQL Server, Flyway, Docker and testing.
+Generate everything required to build, run and verify it.
+Run formatting, tests and the complete persistence verification before finishing.
 ```
 
-For a more explicit starter prompt, see [`START_HERE.md`](START_HERE.md).
+For a longer standalone generation prompt, see [`START_HERE.md`](START_HERE.md).
 
 ## Principle
 
-The repository is intentionally opinionated. It stores only reusable rules and prompts; generated applications belong in their own directories and repositories.
+The YAML says what to build. The repository rules say how to build it. The Python CLI coordinates the coding agent and verification. The generated Spring Boot application remains a normal, independent project.
 
 ## License
 

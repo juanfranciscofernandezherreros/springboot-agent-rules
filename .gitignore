@@ -5,3 +5,8 @@ target/
 .env
 *.log
 hs_err_pid*
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+generated/

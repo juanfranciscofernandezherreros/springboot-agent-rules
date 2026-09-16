@@ -1,0 +1,49 @@
+project:
+  name: orders-api
+  group: com.acme
+  package: com.acme.orders
+
+feature:
+  name: Order
+  basePath: /orders
+
+  fields:
+    - name: id
+      type: Long
+      primaryKey: true
+      generated: true
+
+    - name: customerReference
+      type: String
+      required: true
+      max: 100
+
+    - name: status
+      type: OrderStatus
+      required: true
+
+    - name: totalAmount
+      type: BigDecimal
+      required: true
+      positive: true
+
+    - name: createdAt
+      type: Instant
+      generatedOnCreate: true
+
+  operations:
+    - create
+    - get by id
+    - paginated search
+    - patch
+    - delete
+
+  filters:
+    - customerReference
+    - status
+
+output: generated/orders-api
+
+# Optional. Prefer AGENT_RULES_AGENT_COMMAND so specs remain agent-vendor neutral.
+# agent:
+#   command: your-agent-cli --non-interactive
