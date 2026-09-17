@@ -325,3 +325,19 @@ Do not use wording that makes an assumption sound like an established business r
 When the user explicitly requests API-first generation, the OpenAPI document is the public-contract source of truth. The build must validate that document and generate the server API interface from it; the HTTP controller implements that generated interface. Do not maintain a handwritten duplicate interface or independently declared HTTP mappings that can diverge from the generated contract.
 
 The specification must declare every public request and response field, operation, path parameter, query parameter, validation constraint, and documented success or error status exposed by the service. Regenerate the server contract during the Maven lifecycle and compile the generated source set.
+
+### Generated-source dependency verification
+
+API-first generation is not complete when the generator merely writes source files. The generated source set must compile as part of the normal production build.
+
+After selecting or changing the OpenAPI Generator version, generator name, library, or config options:
+
+1. Generate the server source set.
+2. Inspect the generated imports and referenced framework types before finalizing dependencies.
+3. Add only the compile/runtime dependencies actually required by the generated output and the chosen configuration.
+4. Verify those dependency versions are compatible with the resolved Spring Boot version and with each other; do not assume that every OpenAPI Generator, Springdoc, Swagger annotations, nullable/Jackson, or Spring Framework combination is interchangeable.
+5. Do not add Springdoc, Swagger annotations, nullable helpers, or similar libraries merely because they are common in generated projects. Add them only when the generated source or an explicit application requirement needs them.
+6. Prefer generator configuration that avoids unnecessary generated framework dependencies when it still satisfies the requested contract and established project conventions.
+7. Run the production compile/package gate from `docs/testing.md` against the generated source set. Missing generated-code packages or annotations are a build/dependency configuration failure, not a reason to hand-edit generated files or duplicate the generated API interface.
+
+When generated imports change after a generator/configuration upgrade, reassess the dependency set instead of preserving stale dependencies blindly.
