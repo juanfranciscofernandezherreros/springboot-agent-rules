@@ -319,3 +319,9 @@ Generated README/API documentation must distinguish clearly between:
 - implementation assumptions made because requirements were absent.
 
 Do not use wording that makes an assumption sound like an established business rule.
+
+## API-first contracts
+
+When the user explicitly requests API-first generation, the OpenAPI document is the public-contract source of truth. The build must validate that document and generate the server API interface from it; the HTTP controller implements that generated interface. Do not maintain a handwritten duplicate interface or independently declared HTTP mappings that can diverge from the generated contract.
+
+The specification must declare every public request and response field, operation, path parameter, query parameter, validation constraint, and documented success or error status exposed by the service. Regenerate the server contract during the Maven lifecycle and compile the generated source set.

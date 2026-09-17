@@ -93,6 +93,79 @@ Start with [`START_HERE.md`](START_HERE.md), then read `AGENTS.md` and every rel
 
 The repository is intentionally opinionated. It stores reusable rules and prompts; generated applications belong in their own directories and repositories.
 
+## Complete API-first prompt: `investment-funds-api`
+
+Use the following prompt with an agent working from this repository. It is deliberately explicit about the product contract while delegating workflow, verification, and publication rules to the canonical documents.
+
+```text
+Read AGENTS.md completely and every relevant canonical document under docs/ before generating code. Apply docs/domain-contract.md, database.md, layered-architecture.md, controllers.md, mappers.md, exceptions.md, testing.md, java-style.md, annotations.md and logging.md.
+
+Generate a complete Spring Boot microservice from scratch.
+
+Project:
+- name and artifact: investment-funds-api
+- group and base package: com.example / com.example.investmentfunds
+- Java 21, Spring Boot 4.x, Maven Wrapper
+- Spring MVC, Spring Data JPA, Bean Validation, Lombok
+- Microsoft SQL Server and Flyway
+
+Use API-first. src/main/resources/static/openapi.yaml is the public contract source of truth. The Maven build must validate it and generate the Spring server interface with OpenAPI Generator; the controller must implement the generated interface. Do not keep a handwritten duplicate API interface.
+
+Feature: investment funds. Base path: /api/v1/funds.
+
+Fund fields:
+- id: Long, SQL Server BIGINT IDENTITY primary key, generated
+- isin: String required, max 12, unique
+- name: String required, max 200
+- managementCompany: String optional, max 200
+- category: String optional, max 100
+- currency: String required, exactly 3 characters
+- inceptionDate and navDate: LocalDate optional
+- nav, assetsUnderManagement, managementFee, depositFee, ter, returnYtd, return1Year, return3Years, return5Years: BigDecimal optional
+- investors: Integer optional
+- riskLevel: Integer optional, between 1 and 7 when present
+- active: Boolean required, default true
+- createdAt and updatedAt: OffsetDateTime; created on creation and updated only on modification
+
+Do not invent financial calculations, recommendations, authentication, authorization, business states, relationships, fields or filters.
+
+Operations:
+- POST /api/v1/funds returns 201
+- GET /api/v1/funds/{id} returns 200 or standard 404
+- GET /api/v1/funds supports Spring Data pagination and only isin, name, managementCompany, category, currency, riskLevel and active filters
+- PATCH /api/v1/funds/{id} changes only fields present; never id or createdAt
+- DELETE /api/v1/funds/{id} is a physical deletion
+
+Architecture:
+- feature package com.example.investmentfunds.fund with controller, service, repository, model, entity, dto and mapper
+- FundController implements the OpenAPI-generated server interface; it never accesses repository
+- FundService plus FundServiceImpl own transactions, find-or-404 and uniqueness
+- FundRepository is Spring Data; model has no JPA imports; explicit DTO/model/entity mappers have no I/O
+
+Database:
+- versioned Flyway SQL Server migration creates investment_funds
+- BIGINT IDENTITY id, unique isin, nullable risk_level CHECK 1..7, DATETIMEOFFSET timestamps
+- Hibernate validates; never use H2
+- externalize DB_URL, DB_USERNAME and DB_PASSWORD
+
+Docker:
+- production-style multi-stage Dockerfile, .dockerignore and compose.yaml
+- application, SQL Server, idempotent database initialization, health checks and named persistent volume
+- compose dependencies wait for database health and initialization
+- add a non-destructive PowerShell runtime acceptance script: create through API, query SQL Server directly, docker compose down without -v, restart, retrieve through API, query SQL Server again and identify retained volume
+
+Tests and quality:
+- service unit tests, MVC tests and Cucumber JUnit Platform scenarios
+- Cucumber covers valid and invalid POST, GET, search, PATCH and DELETE, prints each request and response, and emits target/cucumber/cucumber.html and cucumber.json
+- configure JaCoCo to enforce at least 80 percent line coverage of application logic
+- use Cucumber's JUnit Platform engine explicitly and prove Maven discovers scenarios
+- CI uses Maven Wrapper and runs spotless:check verify on push and pull request
+
+README must distinguish supplied requirements, inherited rules and implementation decisions, and document build, run, Docker, endpoints, curl examples, tests and reports.
+
+Before reporting completion, execute docs/testing.md's canonical Maven finalization sequence exactly. If Docker is available, execute docs/database.md's runtime persistence acceptance. Never report a stronger verification state than actually passed.
+```
+
 ## License
 
 No license file is currently included. Add one before redistribution or external contributions if needed.
