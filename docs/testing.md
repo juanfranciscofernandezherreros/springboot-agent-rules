@@ -1,8 +1,6 @@
 # Testing
 
-This document is the canonical source of truth for automated tests, CI behavior, verification states, the mandatory Maven finalization sequence, publication rules, and the containerized runtime acceptance test.
-
-Other documents may reference these rules but must not copy, shorten, reorder, or redefine the mandatory finalization sequence.
+This document is the canonical source of truth for automated tests, CI behavior, verification states, publication rules, and the containerized runtime acceptance test.
 
 Use JUnit 6, Mockito, and AssertJ. Tests mirror the feature layer packages.
 
@@ -38,79 +36,70 @@ verify(repository, never()).delete(any(CryptocurrencyEntity.class));
 
 Avoid raw `any()` where overload resolution can become ambiguous.
 
+## Coverage
+
+Generated Maven services must configure JaCoCo to enforce at least 80 percent line coverage of application logic. Generated OpenAPI sources may be excluded from the coverage calculation because they are build output rather than handwritten application logic.
+
+Do not weaken the threshold merely to make CI pass. Add or improve meaningful tests when coverage is below 80 percent.
+
 ## Verification states
 
 Use these states precisely:
 
 ```text
 GENERATED
-  -> spotless:apply + spotless:check
-FORMATTED
   -> production clean package
 COMPILED
-  -> verify
+  -> verify with configured tests and JaCoCo >= 80%
 TESTED
-  -> complete mandatory Maven finalization sequence
+  -> required CI jobs pass on the exact revision
 VERIFIED
   -> runtime acceptance for a new persistent service
 RUNTIME_VERIFIED
 ```
 
-Never report a stronger state than the highest gate that actually passed on the exact revision being discussed.
+A passing compile job proves production code and generated API sources compile. A passing verification/coverage job proves configured tests pass and the JaCoCo threshold is satisfied. Spotless is a code-formatting tool and does not determine whether a revision may be merged.
 
-Examples:
+Never report persistence as verified unless the runtime acceptance test actually passed.
 
-- If production `clean package` passes but tests were not run, say `COMPILED`, not `TESTED`.
-- If unit/MVC tests pass but the mandatory Maven finalization sequence was not completed, do not say `VERIFIED`, `ready`, or `complete`.
-- A passing compile-only CI job proves the committed revision compiles; it does not prove tests, formatting, coverage, or runtime persistence.
-- If Maven verification passes but Docker acceptance could not run, do not say persistence was verified.
+## Recommended local verification
 
-## Mandatory finalization sequence
-
-For every generated or modified Maven project, run these commands in this exact order before commit, push, pull request creation, or reporting completion:
+Before reporting a Java change complete, run when the execution environment permits:
 
 ```bash
 ./mvnw --batch-mode --no-transfer-progress spotless:apply
-./mvnw --batch-mode --no-transfer-progress spotless:check
 ./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
 ./mvnw --batch-mode --no-transfer-progress verify
-./mvnw --batch-mode --no-transfer-progress spotless:check verify
 ```
 
-This sequence is canonical. Do not shorten it to `spotless:check && verify`, do not reorder it, and do not substitute CI execution for a locally executable pre-publication gate.
-
-Rules:
-
-- Every command above must exit with code `0`.
-- If `spotless:apply` changes files, all later checks must run against the formatted files.
-- If source, test, dependency, build, formatter, or workflow configuration changes after a successful gate, rerun the affected checks; when uncertain, rerun all five commands.
-- The compile-only command intentionally uses `-Dmaven.test.skip=true` so test sources are not compiled.
-- The last command is the final local quality gate. CI is not required to repeat it.
-- If the repository workflow uses another Maven Wrapper command and the project explicitly requires parity with that workflow, that exact command is an additional pre-publication gate.
-- Never report a project as buildable, tested, verified, ready, CI-ready, or complete unless the corresponding gate actually passed.
+`spotless:apply` formats code but is not a publication or merge gate. Do not remove Spotless from projects that use the standard stack merely to avoid formatting work.
 
 ## Publication policy and constrained environments
 
-An exact revision that has not completed the mandatory finalization sequence is `UNVERIFIED`.
+Publication to the default branch is allowed when the repository's required CI jobs pass on the exact revision being published.
 
-If the execution environment cannot run the target repository's Maven Wrapper or another required finalization dependency:
+For the default generated workflow, the required evidence is:
 
-- do not push generated or modified Java code to the default branch;
-- do not open a pull request that is described as verified or ready;
-- do not rely on GitHub Actions as a substitute for formatter execution on the exact revision;
-- do not guess the output of `spotless:apply`;
-- do not weaken or remove `spotless:check` from the canonical local finalization sequence;
-- state exactly which verification could not run.
+- production compile/package succeeds using the Maven Wrapper;
+- API-first validation/generation succeeds as part of the Maven lifecycle when configured;
+- `verify` succeeds;
+- configured tests pass;
+- JaCoCo reports at least 80 percent line coverage of application logic.
 
-If the user explicitly insists on publishing despite the missing verification, publication is allowed only to a clearly named non-default branch such as `unverified/<description>` or `wip/<description>`. The commit and response must clearly state which gates were not executed. A user instruction to publish does not convert an unverified revision into a verified one and does not authorize an unverified push to the default branch.
+Failure to run Spotless locally does not by itself require an `unverified/` branch and does not block merge when the required CI jobs above pass.
+
+If the required CI jobs cannot execute or fail, do not describe the revision as verified. A user may explicitly request publication of such work to a non-default `unverified/` or `wip/` branch, but the default branch should receive only revisions whose required CI jobs pass.
 
 ## CI workflow rules
 
-CI is a verifier of committed production compilation, not a formatter and not a replacement for the canonical pre-publication sequence.
+For Java 21 + Maven projects, the default GitHub Actions workflow uses the Maven Wrapper with two independently diagnosable jobs:
 
-For Java 21 + Maven projects, the default GitHub Actions workflow should use the Maven Wrapper and run a compile/package-only job. It must validate and generate API-first sources through the normal Maven lifecycle when configured. `spotless:check`, `verify`, tests, Cucumber, and JaCoCo are not mandatory CI jobs by default; they remain part of the canonical local finalization sequence and may be added to CI when the project or user explicitly requires them.
+1. `compile`: production compile/package only;
+2. `coverage`: Maven `verify`, which runs configured tests and enforces JaCoCo >= 80 percent.
 
-A reference shape is:
+Spotless is not a mandatory GitHub Actions gate.
+
+Reference shape:
 
 ```yaml
 name: CI
@@ -136,21 +125,33 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
+
+  coverage:
+    name: Tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw --batch-mode --no-transfer-progress verify
 ```
 
-Do not make CI run `spotless:apply` merely to hide unformatted code. Formatting belongs to the canonical local finalization sequence.
-
-Before considering the default workflow finished, verify:
+Before considering the workflow finished, verify:
 
 - workflow YAML is syntactically valid;
 - Java version matches the project;
 - selected action versions are current and not deprecated in runner logs;
-- the production compile/package job passes;
-- API-first validation/generation participates in that Maven lifecycle when configured;
+- production compile/package passes;
+- API-first validation/generation participates in the Maven lifecycle when configured;
 - generated production sources compile;
+- complete test sources compile;
+- configured tests pass;
+- Cucumber executes at least one scenario when configured;
+- JaCoCo enforces at least 80 percent line coverage of application logic;
 - CI uses the Maven Wrapper rather than silently switching to global Maven.
-
-Tests, Cucumber discovery, JaCoCo coverage, and Spotless remain verification requirements when configured, but their proof comes from the mandatory local finalization sequence unless CI explicitly includes those gates.
 
 ## Cucumber with Maven and JUnit Platform
 
@@ -181,7 +182,7 @@ For each service, cover at least:
 
 ## Containerized runtime acceptance test
 
-For a newly generated persistent microservice, or when the user asks to prove that it runs and persists data, perform this after the mandatory Maven finalization sequence:
+For a newly generated persistent microservice, or when the user asks to prove that it runs and persists data, perform this after the automated compile and verification gates:
 
 1. Run `docker compose config` and require success.
 2. Start the complete stack with `docker compose up -d --build`.
@@ -193,14 +194,14 @@ For a newly generated persistent microservice, or when the user asks to prove th
 8. Query the database directly again and require the same row to exist.
 9. Check final container health and identify the named volume that retained the data.
 
-The runtime test passes only when formatting, production compilation, automated tests, the final local quality gate, Flyway, container health, API creation, direct database verification, restart retrieval, second database verification, and named-volume persistence all succeed.
+The runtime test passes only when production compilation, automated tests, coverage, Flyway, container health, API creation, direct database verification, restart retrieval, second database verification, and named-volume persistence all succeed.
 
 Never use `docker compose down -v`, `docker volume rm`, or equivalent destructive volume deletion during persistence verification unless the user explicitly requests a clean reset.
 
 ## Documentation consistency rule
 
-Mandatory command sequences, stack defaults, publication gates, and verification-state definitions must have exactly one canonical definition in the appropriate source document.
+Mandatory CI gates, stack defaults, publication gates, and verification-state definitions must have exactly one canonical definition in the appropriate source document.
 
-Other documents must link to the canonical definition instead of copying it.
+Other documents must link to the canonical definition instead of contradicting it.
 
 When changing a canonical rule, search the repository for duplicated or contradictory wording and update it in the same change.
