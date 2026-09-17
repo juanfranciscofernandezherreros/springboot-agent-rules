@@ -28,6 +28,11 @@ Before modifying or generating code:
 16. Do not describe a generated microservice as tested merely because unit tests pass. Build it, start the complete Compose stack, exercise the real HTTP API with `curl`, and verify the resulting row directly in SQL Server.
 17. Prove persistence by recreating the containers without deleting their named volumes, then read the same record through both the API and a direct SQL Server query.
 18. Report concrete verification evidence: build/test result, container health, HTTP status and response, database row, restart result, and persistent volume name.
+19. When adding GitHub Actions, validate the exact Maven Wrapper commands locally first and keep compile/package and Cucumber concerns independently diagnosable.
+20. A compile-only Maven job must use `-Dmaven.test.skip=true` when test sources must not be compiled. Do not assume `-DskipTests` skips test compilation.
+21. In Spring Boot 4 projects, verify test starter modularization before using MVC test slices; `@WebMvcTest` may require `spring-boot-starter-webmvc-test` in addition to `spring-boot-starter-test`.
+22. When Spring Data exposes overloaded repository methods, use typed Mockito matchers such as `any(<Feature>Entity.class)` to avoid compile-time ambiguity.
+23. When Cucumber is requested, configure its JUnit Platform engine explicitly and prove that Maven discovers and executes at least one scenario before considering the workflow complete.
 
 ## Stack
 
@@ -39,7 +44,7 @@ Microsoft SQL Server is the default persistence engine for new generated service
 
 `docs/database.md` is the source of truth for datasource, SQL Server, Docker Compose, Flyway, multi-datasource, secret handling, and environment rules.
 
-`docs/testing.md` is the source of truth for automated tests and the containerized runtime acceptance test required for newly generated persistent microservices.
+`docs/testing.md` is the source of truth for automated tests, Cucumber/CI behavior, and the containerized runtime acceptance test required for newly generated persistent microservices.
 
 Before creating or changing persistence code:
 
@@ -161,5 +166,9 @@ Not every feature needs every file. Add a layer only when it actually carries we
 - Use `var` in controllers and tests; explicit types in services, mappers, and the rest of production code.
 - No existence checks or business logic in controllers.
 - `@Transactional` belongs at class level on service implementations; use `readOnly = true` for read-only services/paths where applicable.
+- Spring Boot 4 test dependencies are modular. Do not assume every test annotation comes from `spring-boot-starter-test`.
+- Maven `-DskipTests` still compiles tests; use `-Dmaven.test.skip=true` for a truly compile/package-only CI job.
+- Cucumber selection with `-Dtest=CucumberTest` does not bypass compilation of unrelated JUnit tests; the complete test source set must compile.
+- Mockito `any()` can become ambiguous when Spring Data adds overloads; use typed matchers for overloaded repository methods.
 - A persistent service is not complete until `docker compose up -d --build` starts the API and SQL Server successfully and a create/restart/read persistence check passes.
 - Never use `docker compose down -v` during a persistence check. Volume deletion is destructive and requires an explicit request.
