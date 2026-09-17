@@ -166,6 +166,67 @@ README must distinguish supplied requirements, inherited rules and implementatio
 Before reporting completion, execute docs/testing.md's canonical Maven finalization sequence exactly. If Docker is available, execute docs/database.md's runtime persistence acceptance. Never report a stronger verification state than actually passed.
 ```
 
+## Example generated result
+
+The prompt above should produce an independent repository with a structure similar to this one. It is an illustrative outcome, not a replacement for the canonical rules or the generated OpenAPI contract.
+
+```text
+investment-funds-api/
+├── .github/workflows/ci.yml
+├── .mvn/
+├── src/
+│   ├── main/
+│   │   ├── java/com/example/investmentfunds/
+│   │   │   ├── InvestmentFundsApiApplication.java
+│   │   │   ├── configuration/
+│   │   │   ├── exception/
+│   │   │   └── fund/
+│   │   │       ├── controller/FundController.java
+│   │   │       ├── dto/CreateFundRequest.java
+│   │   │       ├── dto/UpdateFundRequest.java
+│   │   │       ├── dto/FundResponse.java
+│   │   │       ├── entity/FundEntity.java
+│   │   │       ├── mapper/FundMapper.java
+│   │   │       ├── mapper/FundEntityMapper.java
+│   │   │       ├── model/Fund.java
+│   │   │       ├── repository/FundRepository.java
+│   │   │       └── service/FundService.java, FundServiceImpl.java
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       ├── db/migration/V1__create_investment_funds.sql
+│   │       └── static/openapi.yaml
+│   └── test/
+│       ├── java/.../fund/...
+│       └── resources/features/funds.feature
+├── scripts/verify-persistence.ps1
+├── .dockerignore
+├── compose.yaml
+├── Dockerfile
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+└── README.md
+```
+
+For example, the OpenAPI document contains the complete public contract and drives the generated server interface:
+
+```yaml
+paths:
+  /api/v1/funds/{id}:
+    get:
+      operationId: getFundById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: Fund found }
+        '404': { description: Fund not found }
+```
+
+The generated `FundController` implements that API interface, delegates to `FundService`, and has no repository dependency. Flyway creates `investment_funds`; the entity maps persistence, while DTO, model, and entity conversions stay in explicit mappers. The build also generates `target/cucumber/cucumber.html`, `target/cucumber/cucumber.json`, and a JaCoCo report after the relevant test lifecycle runs.
+
 ## License
 
 No license file is currently included. Add one before redistribution or external contributions if needed.
