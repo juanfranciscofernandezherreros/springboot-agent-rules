@@ -60,6 +60,42 @@ def _as_mapping(value: Any, context: str) -> dict[str, Any]:
     return value
 
 
+def _looks_like_enum(field_type: str) -> bool:
+    return field_type.endswith("Status") or field_type.endswith("Type") or field_type.endswith("Enum")
+
+
+def _validate_field_semantics(fields: list[FieldSpec], filters: list[str]) -> None:
+    field_names = [field.name for field in fields]
+    duplicate_names = sorted({name for name in field_names if field_names.count(name) > 1})
+    if duplicate_names:
+        raise SpecError(f"Duplicate field name(s): {', '.join(duplicate_names)}")
+
+    missing_filters = [name for name in filters if name not in field_names]
+    if missing_filters:
+        raise SpecError(f"Unknown filter field(s): {', '.join(missing_filters)}")
+
+    for field in fields:
+        values = field.options.get("values")
+        if _looks_like_enum(field.type):
+            if values is None:
+                raise SpecError(
+                    f"Field '{field.name}' uses enum-like type '{field.type}' and requires a non-empty 'values' list"
+                )
+            if not isinstance(values, list) or not values or not all(isinstance(item, str) and item for item in values):
+                raise SpecError(
+                    f"Field '{field.name}' option 'values' must be a non-empty list of strings"
+                )
+
+        max_value = field.options.get("max")
+        min_value = field.options.get("min")
+        if max_value is not None and min_value is not None:
+            try:
+                if min_value > max_value:
+                    raise SpecError(f"Field '{field.name}' has min greater than max")
+            except TypeError as exc:
+                raise SpecError(f"Field '{field.name}' min/max values must be comparable") from exc
+
+
 def load_spec(path: str | Path) -> ServiceSpec:
     spec_path = Path(path)
     try:
@@ -98,13 +134,16 @@ def load_spec(path: str | Path) -> ServiceSpec:
     filters_raw = feature_raw.get("filters", [])
     if not isinstance(filters_raw, list):
         raise SpecError("'feature.filters' must be a list")
+    parsed_filters = [str(item) for item in filters_raw]
+
+    _validate_field_semantics(parsed_fields, parsed_filters)
 
     feature = FeatureSpec(
         name=str(_required(feature_raw, "name", "feature")),
         base_path=str(_required(feature_raw, "basePath", "feature")),
         fields=tuple(parsed_fields),
         operations=tuple(str(item) for item in operations_raw),
-        filters=tuple(str(item) for item in filters_raw),
+        filters=tuple(parsed_filters),
     )
 
     agent_raw = root.get("agent") or {}
