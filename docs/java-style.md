@@ -4,14 +4,26 @@ Use 4-space indentation, 120-character lines, IntelliJ IDEA's default Java style
 
 Use blank lines to separate logical blocks. Keep a blank line before and after a `return`, loop, or stream chain unless it is the first or last line in its block.
 
-Enforce formatting automatically. Prefer Spotless with Palantir Java Format. Typical Maven commands:
+Enforce formatting automatically. Prefer Spotless with Palantir Java Format.
+
+## Mandatory formatting sequence
+
+After generating or modifying Java source, always run the formatter before checking formatting:
 
 ```bash
-./mvnw spotless:apply
-./mvnw spotless:check
+./mvnw --batch-mode --no-transfer-progress spotless:apply
+./mvnw --batch-mode --no-transfer-progress spotless:check
 ```
 
-Run `spotless:check` in CI together with the test suite.
+`spotless:check` verifies formatting but does not fix it. Never rely on CI to format generated code.
+
+If `spotless:apply` modifies files, those modifications are part of the implementation and must be included before compilation, tests, commit, push, or pull request creation.
+
+After any subsequent Java change, rerun `spotless:apply` and `spotless:check`.
+
+Run `spotless:check` in CI together with the test suite. CI is a verifier, not a formatter: do not replace `spotless:check` with `spotless:apply` in CI merely to make a pipeline pass.
+
+A formatting failure means the implementation is not ready to publish.
 
 ## Variables and parameters
 
