@@ -1,74 +1,87 @@
 # Backend — Spring Boot
 
-Standards: [`docs/domain-contract.md`](docs/domain-contract.md) · [`docs/java-style.md`](docs/java-style.md) ·
-[`docs/annotations.md`](docs/annotations.md) · [`docs/layered-architecture.md`](docs/layered-architecture.md) ·
-[`docs/controllers.md`](docs/controllers.md) · [`docs/mappers.md`](docs/mappers.md) ·
-[`docs/exceptions.md`](docs/exceptions.md) · [`docs/testing.md`](docs/testing.md) ·
-[`docs/logging.md`](docs/logging.md) · [`docs/database.md`](docs/database.md)
+Standards: [`docs/domain-contract.md`](docs/domain-contract.md) · [`docs/java-style.md`](docs/java-style.md) · [`docs/annotations.md`](docs/annotations.md) · [`docs/layered-architecture.md`](docs/layered-architecture.md) · [`docs/controllers.md`](docs/controllers.md) · [`docs/mappers.md`](docs/mappers.md) · [`docs/exceptions.md`](docs/exceptions.md) · [`docs/testing.md`](docs/testing.md) · [`docs/logging.md`](docs/logging.md) · [`docs/database.md`](docs/database.md)
+
+## Rule precedence
+
+This file is the root instruction source for agent behavior.
+
+When instructions overlap, use this precedence:
+
+1. `AGENTS.md` defines mandatory agent workflow and precedence.
+2. The relevant document under `docs/` defines the canonical subject-specific rule.
+3. `README.md` and `START_HERE.md` are explanatory only and must not redefine mandatory rules, command sequences, publication gates, or stack defaults.
+
+If two documents conflict, follow the higher-precedence source and fix the lower-precedence document in the same change when possible.
+
+Mandatory command sequences, stack defaults, publication gates, and verification-state definitions must have exactly one canonical definition. Other documents must link to that definition rather than copying it.
 
 ## Agent workflow
 
 Before modifying or generating code:
 
 1. Read this file completely.
-2. Read every relevant file under `docs/`. Persistence work always requires `docs/database.md`. New feature/API generation always requires `docs/domain-contract.md`.
-3. Inspect existing project conventions before creating new files.
-4. Establish the domain contract from the user's request and existing project sources before generating production code. Do not silently invent business fields, states, transitions, validation rules, endpoints, identifiers, financial rules, security behavior, or persistence semantics.
-5. Do not introduce new dependencies unless required by the requested feature or selected database engine.
-6. Follow the architecture documented here even if another Spring convention would also work.
-7. Keep changes focused on the requested task.
-8. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
-9. Prefer existing patterns over inventing new abstractions.
-10. If generating a project from scratch, create all files necessary for it to build and run.
-11. New generated projects use Java 21 unless the user explicitly requests another supported Java version.
-12. New persistent projects use Microsoft SQL Server by default. Do not silently substitute H2, PostgreSQL, MySQL, or another engine.
-13. For an existing project, preserve an already configured datasource and database engine unless the user explicitly requests a migration or replacement.
-14. For a persistent project, ensure SQL Server or the explicitly selected existing engine can be started locally and that the application configuration, JDBC driver, Flyway module, migrations, and documentation agree on the same engine.
-15. A new persistent microservice must include a production-style `Dockerfile`, `.dockerignore`, and a Docker Compose stack that starts both the application and SQL Server with health-aware dependencies and persistent database storage.
-16. After source generation or modification, run `spotless:apply` before `spotless:check`. Formatting changes are part of the implementation and must be included before compilation or publication.
-17. Before commit, push, PR creation, or reporting completion, run the mandatory finalization sequence from `docs/testing.md`: formatting apply/check, production compile/package, full verification, and CI parity gate. Every required command must exit with code `0`.
-18. When GitHub Actions exists, run the exact Maven Wrapper command used by the workflow before publishing changes. CI must verify committed code; do not use CI `spotless:apply` to hide formatting failures.
-19. Do not describe a generated microservice as tested merely because unit tests pass. Build it, start the complete Compose stack, exercise the real HTTP API with `curl`, and verify the resulting row directly in SQL Server.
-20. Prove persistence by recreating the containers without deleting their named volumes, then read the same record through both the API and a direct SQL Server query.
-21. Report concrete verification evidence: formatting result, production compile/package result, test result, CI parity result, container health, HTTP status and response, database row, restart result, and persistent volume name.
-22. If a required check cannot run because the environment lacks Java, Maven prerequisites, Docker, network access, or another dependency, say exactly what was not executed. Never claim compiled, tested, persistence-verified, CI-ready, or complete without corresponding execution evidence.
-23. When adding GitHub Actions, keep compile/package and behavioral/test concerns independently diagnosable.
-24. A compile-only Maven job must use `-Dmaven.test.skip=true` when test sources must not be compiled. Do not assume `-DskipTests` skips test compilation.
-25. In Spring Boot 4 projects, verify test starter modularization before using MVC test slices; `@WebMvcTest` may require `spring-boot-starter-webmvc-test` in addition to `spring-boot-starter-test`.
-26. When Spring Data exposes overloaded repository methods, use typed Mockito matchers such as `any(<Feature>Entity.class)` to avoid compile-time ambiguity.
-27. When Cucumber is requested, configure its JUnit Platform engine explicitly and prove that Maven discovers and executes at least one scenario before considering the workflow complete.
+2. Read every relevant canonical file under `docs/`.
+3. Persistence work always requires `docs/database.md`.
+4. New feature/API generation always requires `docs/domain-contract.md`.
+5. Verification, CI, finalization, and publication behavior always follow `docs/testing.md` exactly.
+6. Inspect existing project conventions before creating new files.
+7. Establish the domain contract from the user's request and existing project sources before generating production code.
+8. Do not silently invent business fields, states, transitions, validation rules, endpoints, identifiers, financial rules, security behavior, persistence semantics, datasource settings, or schema rules.
+9. Do not introduce dependencies unless required by the requested feature, selected database engine, selected web stack, or established project conventions.
+10. Keep changes focused on the requested task.
+11. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
+12. Prefer existing patterns over inventing new abstractions.
+13. If generating a project from scratch, create all files necessary for it to build and run.
+14. New generated projects use Java 21 unless the user explicitly requests another supported Java version.
+15. New Spring Boot 4 MVC services use `spring-boot-starter-webmvc` unless an existing project already establishes another supported web stack.
+16. New persistent projects use Microsoft SQL Server by default unless explicitly overridden.
+17. Existing projects preserve their already configured datasource and database engine unless the user explicitly requests migration or replacement.
+18. A new persistent microservice includes a production-style `Dockerfile`, `.dockerignore`, and Docker Compose stack for the application and SQL Server with health-aware dependencies and persistent storage.
+19. Before commit, push, pull request creation, or reporting completion, execute the canonical finalization sequence from `docs/testing.md` on the exact revision.
+20. Do not copy, shorten, reorder, or partially substitute that sequence in this file or elsewhere.
+21. When GitHub Actions exists, run the exact Maven Wrapper command used by the workflow as an additional pre-publication parity gate when `docs/testing.md` requires it.
+22. CI verifies committed code; CI does not repair formatting and does not replace an executable pre-publication formatter gate.
+23. Never report a stronger verification state than the highest state actually achieved on the exact revision. Use the state model in `docs/testing.md`.
+24. For a new persistent microservice, automated tests do not replace the runtime acceptance and persistence test defined in `docs/testing.md` and `docs/database.md`.
+25. Report concrete verification evidence and exact blockers. Never claim compiled, tested, persistence-verified, CI-ready, verified, or complete without the corresponding execution evidence.
 
-## Mandatory finalization sequence
+## Publication guard
 
-The following sequence is part of implementation, not optional cleanup:
+Publication behavior for unverified revisions is defined canonically in `docs/testing.md`.
 
-```bash
-./mvnw --batch-mode --no-transfer-progress spotless:apply
-./mvnw --batch-mode --no-transfer-progress spotless:check
-./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
-./mvnw --batch-mode --no-transfer-progress verify
-./mvnw --batch-mode --no-transfer-progress spotless:check verify
-```
+In summary:
 
-Rules:
-
-- Do not commit, push, open a pull request, or report completion while any command fails.
-- If `spotless:apply` modifies files, rerun subsequent checks against the formatted files.
-- If source, test, dependency, build, formatter, or workflow configuration changes after a passing gate, rerun the affected checks; when uncertain, rerun the entire sequence.
-- The last command is the default CI parity gate. If the repository workflow uses another Maven Wrapper command, that exact command is an additional mandatory pre-publication gate.
-- A generated project that has not passed production compilation is not complete, even when tests were not requested explicitly.
+- an exact revision that has not completed the mandatory finalization sequence is `UNVERIFIED`;
+- an unverified Java revision must not be pushed directly to the default branch;
+- a later instruction to "push anyway" does not convert the revision into a verified one and does not authorize bypassing the default-branch guard;
+- when the user explicitly insists on publication despite missing execution capability, use a clearly named non-default branch such as `unverified/<description>` or `wip/<description>` and disclose the missing gates;
+- do not guess what `spotless:apply` would change;
+- do not weaken CI or formatter checks to manufacture a passing state.
 
 ## Stack
 
-Java 21 · Spring Boot 4.x · Maven Wrapper · Spring Data JPA · Lombok · JUnit 6 + Mockito + AssertJ.
+For newly generated services, unless explicitly overridden or an existing project establishes another supported convention:
 
-Microsoft SQL Server is the default persistence engine for new generated services. Use another engine only when the user explicitly requests it or an existing project already defines a different datasource that must be preserved.
+- Java 21;
+- Spring Boot 4.x;
+- Maven Wrapper;
+- Spring MVC via `spring-boot-starter-webmvc`;
+- Spring Data JPA;
+- Bean Validation;
+- Lombok;
+- JUnit 6 + Mockito + AssertJ;
+- Spotless with Palantir Java Format;
+- Microsoft SQL Server for persistence;
+- Flyway for schema evolution.
+
+For explicitly versioned third-party integrations, verify compatibility with the resolved Spring Boot version rather than assuming all 4.x combinations are interchangeable.
 
 ## Domain contract rules
 
 `docs/domain-contract.md` is the source of truth for determining feature inputs and preventing silent invention of business requirements.
 
-Before generating a feature, determine from the request or existing project sources, as applicable:
+Before generating a feature, establish as applicable:
 
 - feature name and API base path;
 - operations and HTTP methods;
@@ -88,96 +101,21 @@ Before generating a feature, determine from the request or existing project sour
 - authentication/authorization and audit requirements when present;
 - indexes and migration requirements.
 
-Do not present implementation assumptions as established business requirements. For financial, regulated, accounting, or security behavior, never invent fees, balance semantics, settlement guarantees, fraud rules, transfer limits, authorization policy, idempotency guarantees, or state transitions.
+Do not present implementation assumptions as established business requirements. Never invent regulated, financial, accounting, compliance, or security behavior.
 
 ## Database and datasource rules
 
-`docs/database.md` is the source of truth for datasource, SQL Server, Docker Compose, Flyway, multi-datasource, secret handling, and environment rules.
-
-`docs/testing.md` is the source of truth for automated tests, CI behavior, finalization gates, and the containerized runtime acceptance test required for newly generated persistent microservices.
+`docs/database.md` is the source of truth for datasource, SQL Server, Docker Compose, Flyway, multi-datasource, secret handling, engine-specific mappings, and environment rules.
 
 Before creating or changing persistence code:
 
 1. Inspect the existing datasource configuration, JDBC dependencies, Flyway modules, JPA configuration, persistence units, transaction managers, and migration scripts.
-2. For a new generated project with no existing datasource, use Microsoft SQL Server.
-3. For an existing project, reuse its configured database engine and datasource conventions unless the user explicitly requests another database.
-4. Do not silently replace an existing configured engine.
-5. Do not invent datasource names, schemas, connection properties, credentials, trust stores, authentication modes, or pool sizes.
-6. Never hardcode production credentials or secret values.
-7. If a different database engine or datasource is explicitly requested, add only the driver and database-specific support actually required.
-8. Database migrations must use SQL compatible with the selected database engine.
-9. Flyway owns deployed schema evolution; keep Hibernate schema handling at `validate` unless an established test profile intentionally uses otherwise.
-
-### SQL Server reference behavior
-
-When SQL Server is selected — which is the default for new generated persistent services:
-
-- Use `com.microsoft.sqlserver.jdbc.SQLServerDriver` and the `com.microsoft.sqlserver:mssql-jdbc` artifact.
-- Use Flyway SQL Server support (`org.flywaydb:flyway-sqlserver`).
-- Use SQL Server-compatible Flyway migrations.
-- Use `org.hibernate.dialect.SQLServerDialect` only when the project explicitly configures the dialect.
-- For local development, prefer the repository Docker Compose SQL Server and simple SQL authentication.
-- For deployed/corporate environments, preserve existing TLS, NTLM/integrated-security, trust-store, datasource name, persistence-unit, schema, secret injection, and Hikari settings rather than replacing them with local defaults.
-- Local development configuration and corporate configuration are intentionally different connection profiles for the same database engine.
-
-A corporate datasource may look like:
-
-```yaml
-spring:
-  datasource:
-    sqlserverdb:
-      url: jdbc:sqlserver://${HOSTNAME_SQL}:${PORT};database=${DATABASENAME};encrypt=true;trustServerCertificate=true;authenticationScheme=NTLM;integratedSecurity=true;trustStore=/deployments/crypto-stores/truststore.jks;trustStorePassword=${TRUSTSTORE_PASS}
-      username: ${USERNAME}
-      password: ${PASSWORD}
-      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-      dialect: org.hibernate.dialect.SQLServerDialect
-      ddl-auto: validate
-      persistence-unit: sqlserverdb
-      hikari:
-        connection-timeout: 50000
-        idle-timeout: 300000
-        max-lifetime: 900000
-        maximum-pool-size: 200
-        minimum-idle: 80
-        pool-name: ConnPoolBilling
-```
-
-These values are an example of an existing project-specific shape, not defaults. Never copy its pool sizes, authentication settings, trust-store path, persistence-unit name, or secret values into an unrelated project.
-
-A deployment block such as:
-
-```yaml
-- group: sql-server-billinguser
-  scope: global
-  secrets: true
-```
-
-is platform/secret configuration, not Spring Boot configuration. Preserve the external secret integration and never inline the secrets in source control.
-
-### Multiple datasources
-
-When a project contains named datasources such as `spring.datasource.sqlserverdb`, treat it as custom or multi-datasource configuration until proven otherwise.
-
-Before modifying it:
-
-- locate the corresponding `@ConfigurationProperties`, `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`, repository configuration, entity packages, and persistence-unit setup;
-- determine which datasource owns the feature's entities and repositories;
-- bind new repositories and entities to the correct persistence unit and transaction manager;
-- do not move a feature between datasources unless explicitly requested;
-- do not collapse multiple datasources into the default Spring Boot datasource;
-- do not assume cross-database operations are atomic or introduce distributed transactions unless explicitly required.
-
-### New persistent feature inputs
-
-When generating a new persistent feature, use `docs/domain-contract.md` first, then determine persistence-specific inputs from the request or existing project conventions:
-
-- datasource when more than one exists;
-- database schema when relevant;
-- relationships and foreign keys;
-- uniqueness constraints;
-- indexes and migration requirements.
-
-For new projects, the database engine is SQL Server unless explicitly overridden. Do not invent domain fields, relationships, uniqueness rules, database-specific behavior, or a new datasource when they are not present in the request or existing project.
+2. Reuse an existing configured database engine unless the request explicitly asks to migrate or replace it.
+3. Never invent credentials, production hosts, schemas, datasource names, authentication modes, trust stores, or pool sizes.
+4. Never hardcode production credentials or secret values.
+5. Database migrations must use SQL compatible with the selected database engine.
+6. Flyway owns deployed schema evolution; Hibernate validates deployed schemas unless an established test profile intentionally differs.
+7. When database-specific behavior matters, test against the selected engine rather than assuming H2 is equivalent.
 
 ## Feature package layout
 
@@ -185,33 +123,40 @@ One package per feature, split into layer subpackages:
 
 ```text
 com/<company>/<app>/<feature>/
-  controller/   <Feature>Controller     @RestController @RequestMapping("/<feature>")
-  service/      <Feature>Service        interface — the feature's public surface
-                <Feature>ServiceImpl    @Service, class-level @Transactional — the one impl
-  repository/   <Feature>Repository     interface extends JpaRepository<<Feature>Entity, Id>
-  model/        <Feature>, enums        plain POJO (Lombok), no jakarta.persistence imports
-  entity/       <Feature>Entity         @Entity only, no logic
+  controller/   <Feature>Controller
+  service/      <Feature>Service
+                <Feature>ServiceImpl
+  repository/   <Feature>Repository
+  model/        <Feature>, enums
+  entity/       <Feature>Entity
   dto/          Create/Update/Response records
-  mapper/       <Feature>Mapper         static — DTO ↔ model
-                <Feature>EntityMapper   static — model ↔ entity
+  mapper/       <Feature>Mapper
+                <Feature>EntityMapper
 ```
 
-Not every feature needs every file. Add a layer only when it actually carries weight.
+Not every feature needs every file. Add a layer only when it carries meaningful responsibility.
 
-## Gotchas
+## Core architecture rules
 
 - The service is an interface `<Feature>Service` plus one `@Service` implementation `<Feature>ServiceImpl`.
-- Inject and mock the interface. In the service unit test, `@InjectMocks` targets `<Feature>ServiceImpl`.
-- The repository is a plain Spring Data interface. "Find or 404" is a service concern.
-- `model/` holds plain POJOs with no JPA imports; `entity/` holds persistence classes only.
-- No `final` on method parameters or local variables. Keep `final` only on constructor-injected fields when Lombok requires it.
-- Use `var` in controllers and tests; explicit types in services, mappers, and the rest of production code.
-- No existence checks or business logic in controllers.
-- `@Transactional` belongs at class level on service implementations; use `readOnly = true` for read-only services/paths where applicable.
-- Always run `spotless:apply` before the final `spotless:check`; CI does not repair formatting.
-- Spring Boot 4 test dependencies are modular. Do not assume every test annotation comes from `spring-boot-starter-test`.
-- Maven `-DskipTests` still compiles tests; use `-Dmaven.test.skip=true` for a truly compile/package-only CI job.
-- Cucumber selection with `-Dtest=CucumberTest` does not bypass compilation of unrelated JUnit tests; the complete test source set must compile.
-- Mockito `any()` can become ambiguous when Spring Data adds overloads; use typed matchers for overloaded repository methods.
-- A persistent service is not complete until `docker compose up -d --build` starts the API and SQL Server successfully and a create/restart/read persistence check passes.
-- Never use `docker compose down -v` during a persistence check. Volume deletion is destructive and requires an explicit request.
+- Inject and mock the interface; `@InjectMocks` targets the implementation in service unit tests.
+- The repository is a Spring Data interface. Find-or-404 is a service concern.
+- `model/` contains plain domain/in-memory types with no JPA imports.
+- `entity/` contains persistence mapping, not business behavior.
+- Controllers bind/validate HTTP input, call services, map outputs, and set status codes; they do not access repositories or implement business branching.
+- Use explicit DTO/model/entity mappers according to `docs/mappers.md`.
+- Use the HTTP mapping annotation that matches the contract, including `@PutMapping` when PUT is part of the API.
+- `@Transactional` belongs at class level on service implementations; method-level `@Transactional(readOnly = true)` may intentionally override the class default for reads.
+- Use `var` in controllers and tests; explicit production types elsewhere according to `docs/java-style.md`.
+- No `final` on method parameters or local variables.
+- Spring Boot 4 test dependencies are modular; verify MVC test starter requirements before using `@WebMvcTest`.
+- Maven `-DskipTests` still compiles tests; use `-Dmaven.test.skip=true` for a true production compile/package-only job.
+- Use typed Mockito matchers when framework overloads make raw `any()` ambiguous.
+- When Cucumber is requested, configure its JUnit Platform engine explicitly and prove at least one scenario is discovered and executed.
+- Never delete persistent Docker volumes during a persistence verification unless the user explicitly requests destructive reset behavior.
+
+## Documentation consistency rule
+
+When changing a canonical rule, search the repository for duplicated or contradictory wording and update it in the same change.
+
+Do not add a second copy of the canonical Maven finalization sequence outside `docs/testing.md`.
