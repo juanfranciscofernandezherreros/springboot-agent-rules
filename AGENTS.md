@@ -29,7 +29,7 @@ Before modifying or generating code:
 7. Establish the domain contract from the user's request and existing project sources before generating production code.
 8. When the requested feature contract is incomplete, do not require the user to provide a fully specified contract manually. Run the interactive contract discovery process defined in `docs/domain-contract.md`, asking only for requirements that cannot be derived from the request or existing project sources.
 9. Do not silently invent business fields, states, transitions, validation rules, endpoints, identifiers, financial rules, security behavior, persistence semantics, datasource settings, or schema rules.
-10. Do not introduce dependencies unless required by the requested feature, selected database engine, selected web stack, or established project conventions.
+10. Do not introduce dependencies unless required by the requested feature, selected database engine, selected web stack, generated source set, or established project conventions.
 11. Keep changes focused on the requested task.
 12. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
 13. Prefer existing patterns over inventing new abstractions.
@@ -41,8 +41,8 @@ Before modifying or generating code:
 19. A new persistent microservice includes a production-style `Dockerfile`, `.dockerignore`, and Docker Compose stack for the application and SQL Server with health-aware dependencies and persistent storage.
 20. Before commit, push, pull request creation, or reporting completion, execute the canonical finalization sequence from `docs/testing.md` on the exact revision.
 21. Do not copy, shorten, reorder, or partially substitute that sequence in this file or elsewhere.
-22. When GitHub Actions exists, run the exact Maven Wrapper command used by the workflow as an additional pre-publication parity gate when `docs/testing.md` requires it.
-23. CI verifies committed code; CI does not repair formatting and does not replace an executable pre-publication formatter gate.
+22. GitHub Actions uses the Maven Wrapper and follows the default compile/package-only CI policy from `docs/testing.md` unless the project or user explicitly requires additional CI gates.
+23. CI verifies committed production compilation; it does not repair formatting and does not replace executable local formatter, test, coverage, or verification gates.
 24. Never report a stronger verification state than the highest state actually achieved on the exact revision. Use the state model in `docs/testing.md`.
 25. For a new persistent microservice, automated tests do not replace the runtime acceptance and persistence test defined in `docs/testing.md` and `docs/database.md`.
 26. Report concrete verification evidence and exact blockers. Never claim compiled, tested, persistence-verified, CI-ready, verified, or complete without the corresponding execution evidence.
@@ -58,7 +58,7 @@ In summary:
 - a later instruction to "push anyway" does not convert the revision into a verified one and does not authorize bypassing the default-branch guard;
 - when the user explicitly insists on publication despite missing execution capability, use a clearly named non-default branch such as `unverified/<description>` or `wip/<description>` and disclose the missing gates;
 - do not guess what `spotless:apply` would change;
-- do not weaken CI or formatter checks to manufacture a passing state.
+- do not weaken the canonical local formatter/finalization gates to manufacture a passing verification state.
 
 ## Stack
 
