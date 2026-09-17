@@ -14,7 +14,7 @@ When instructions overlap, use this precedence:
 
 If two documents conflict, follow the higher-precedence source and fix the lower-precedence document in the same change when possible.
 
-Mandatory command sequences, stack defaults, publication gates, and verification-state definitions must have exactly one canonical definition. Other documents must link to that definition rather than copying it.
+Mandatory CI gates, stack defaults, publication gates, and verification-state definitions must have exactly one canonical definition. Other documents must link to that definition rather than copying it.
 
 ## Agent workflow
 
@@ -39,26 +39,26 @@ Before modifying or generating code:
 17. New persistent projects use Microsoft SQL Server by default unless explicitly overridden.
 18. Existing projects preserve their already configured datasource and database engine unless the user explicitly requests migration or replacement.
 19. A new persistent microservice includes a production-style `Dockerfile`, `.dockerignore`, and Docker Compose stack for the application and SQL Server with health-aware dependencies and persistent storage.
-20. Before commit, push, pull request creation, or reporting completion, execute the canonical finalization sequence from `docs/testing.md` on the exact revision.
-21. Do not copy, shorten, reorder, or partially substitute that sequence in this file or elsewhere.
-22. GitHub Actions uses the Maven Wrapper and follows the default compile/package-only CI policy from `docs/testing.md` unless the project or user explicitly requires additional CI gates.
-23. CI verifies committed production compilation; it does not repair formatting and does not replace executable local formatter, test, coverage, or verification gates.
+20. Before reporting completion, execute the recommended local verification from `docs/testing.md` when the environment permits.
+21. GitHub Actions uses the Maven Wrapper and follows the compile plus verification/coverage CI policy from `docs/testing.md`.
+22. Default-branch publication requires the required CI jobs to pass on the exact revision: production compile/package and Maven `verify` with JaCoCo at least 80 percent.
+23. Spotless remains part of the standard stack and local formatting workflow, but it is not a mandatory GitHub Actions or merge gate.
 24. Never report a stronger verification state than the highest state actually achieved on the exact revision. Use the state model in `docs/testing.md`.
 25. For a new persistent microservice, automated tests do not replace the runtime acceptance and persistence test defined in `docs/testing.md` and `docs/database.md`.
 26. Report concrete verification evidence and exact blockers. Never claim compiled, tested, persistence-verified, CI-ready, verified, or complete without the corresponding execution evidence.
 
 ## Publication guard
 
-Publication behavior for unverified revisions is defined canonically in `docs/testing.md`.
+Publication behavior is defined canonically in `docs/testing.md`.
 
 In summary:
 
-- an exact revision that has not completed the mandatory finalization sequence is `UNVERIFIED`;
-- an unverified Java revision must not be pushed directly to the default branch;
-- a later instruction to "push anyway" does not convert the revision into a verified one and does not authorize bypassing the default-branch guard;
-- when the user explicitly insists on publication despite missing execution capability, use a clearly named non-default branch such as `unverified/<description>` or `wip/<description>` and disclose the missing gates;
-- do not guess what `spotless:apply` would change;
-- do not weaken the canonical local formatter/finalization gates to manufacture a passing verification state.
+- the default branch may receive a Java revision when the required CI compile and verification/coverage jobs pass on that exact revision;
+- the verification/coverage job must run configured tests and enforce JaCoCo line coverage of at least 80 percent for application logic;
+- Spotless does not block merge or default-branch publication;
+- if required CI cannot execute or fails, do not describe the revision as verified and do not publish it to the default branch;
+- when the user explicitly insists on publication despite missing required CI evidence, use a clearly named non-default branch such as `unverified/<description>` or `wip/<description>` and disclose the missing gates;
+- never weaken the 80 percent JaCoCo threshold merely to manufacture a passing state.
 
 ## Stack
 
@@ -73,6 +73,7 @@ For newly generated services, unless explicitly overridden or an existing projec
 - Lombok;
 - JUnit 6 + Mockito + AssertJ;
 - Spotless with Palantir Java Format;
+- JaCoCo with at least 80 percent line coverage of application logic;
 - Microsoft SQL Server for persistence;
 - Flyway for schema evolution.
 
@@ -159,5 +160,3 @@ Not every feature needs every file. Add a layer only when it carries meaningful 
 ## Documentation consistency rule
 
 When changing a canonical rule, search the repository for duplicated or contradictory wording and update it in the same change.
-
-Do not add a second copy of the canonical Maven finalization sequence outside `docs/testing.md`.
