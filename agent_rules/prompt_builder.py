@@ -17,10 +17,13 @@ def _format_option(key: str, value: Any) -> str:
         "unique": "unique",
         "default": "default",
         "generatedOnCreate": "generated on create",
+        "values": "values",
     }.get(key, key)
 
     if isinstance(value, bool):
         return label if value else f"{label}=false"
+    if isinstance(value, list):
+        return f"{label}=[{', '.join(str(item) for item in value)}]"
     return f"{label}={value}"
 
 
@@ -60,6 +63,10 @@ Operations:
 
 Search filters:
 {filters}
+
+Treat the YAML specification as the source of truth for domain requirements. Do not invent enum values,
+relationships, uniqueness constraints, defaults, validations, filters, endpoints or other business rules
+that are not explicitly present in the specification or already fixed by the repository rules.
 
 Use the repository defaults for Java, Maven Wrapper, Microsoft SQL Server, Flyway,
 Docker Compose, architecture, formatting and testing. Do not substitute another
