@@ -50,7 +50,7 @@ FORMATTED
 COMPILED
   -> verify
 TESTED
-  -> exact CI parity command
+  -> complete mandatory Maven finalization sequence
 VERIFIED
   -> runtime acceptance for a new persistent service
 RUNTIME_VERIFIED
@@ -61,7 +61,8 @@ Never report a stronger state than the highest gate that actually passed on the 
 Examples:
 
 - If production `clean package` passes but tests were not run, say `COMPILED`, not `TESTED`.
-- If unit/MVC tests pass but the exact CI parity command was not run, do not say `VERIFIED` or `CI-ready`.
+- If unit/MVC tests pass but the mandatory Maven finalization sequence was not completed, do not say `VERIFIED`, `ready`, or `complete`.
+- A passing compile-only CI job proves the committed revision compiles; it does not prove tests, formatting, coverage, or runtime persistence.
 - If Maven verification passes but Docker acceptance could not run, do not say persistence was verified.
 
 ## Mandatory finalization sequence
@@ -84,8 +85,8 @@ Rules:
 - If `spotless:apply` changes files, all later checks must run against the formatted files.
 - If source, test, dependency, build, formatter, or workflow configuration changes after a successful gate, rerun the affected checks; when uncertain, rerun all five commands.
 - The compile-only command intentionally uses `-Dmaven.test.skip=true` so test sources are not compiled.
-- The last command is the default CI parity gate.
-- If the repository workflow uses another Maven Wrapper command, that exact command is an additional mandatory pre-publication gate.
+- The last command is the final local quality gate. CI is not required to repeat it.
+- If the repository workflow uses another Maven Wrapper command and the project explicitly requires parity with that workflow, that exact command is an additional pre-publication gate.
 - Never report a project as buildable, tested, verified, ready, CI-ready, or complete unless the corresponding gate actually passed.
 
 ## Publication policy and constrained environments
@@ -98,16 +99,18 @@ If the execution environment cannot run the target repository's Maven Wrapper or
 - do not open a pull request that is described as verified or ready;
 - do not rely on GitHub Actions as a substitute for formatter execution on the exact revision;
 - do not guess the output of `spotless:apply`;
-- do not weaken or remove `spotless:check`;
+- do not weaken or remove `spotless:check` from the canonical local finalization sequence;
 - state exactly which verification could not run.
 
 If the user explicitly insists on publishing despite the missing verification, publication is allowed only to a clearly named non-default branch such as `unverified/<description>` or `wip/<description>`. The commit and response must clearly state which gates were not executed. A user instruction to publish does not convert an unverified revision into a verified one and does not authorize an unverified push to the default branch.
 
 ## CI workflow rules
 
-CI is a verifier of committed code, not a formatter or a replacement for the canonical pre-publication sequence.
+CI is a verifier of committed production compilation, not a formatter and not a replacement for the canonical pre-publication sequence.
 
-For Java 21 + Maven projects, prefer independently diagnosable compile and quality jobs. A reference shape is:
+For Java 21 + Maven projects, the default GitHub Actions workflow should use the Maven Wrapper and run a compile/package-only job. It must validate and generate API-first sources through the normal Maven lifecycle when configured. `spotless:check`, `verify`, tests, Cucumber, and JaCoCo are not mandatory CI jobs by default; they remain part of the canonical local finalization sequence and may be added to CI when the project or user explicitly requires them.
+
+A reference shape is:
 
 ```yaml
 name: CI
@@ -133,35 +136,21 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
-
-  quality:
-    name: Quality gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-      - run: ./mvnw --batch-mode --no-transfer-progress spotless:check verify
 ```
 
-Do not make CI run `spotless:apply` merely to hide unformatted code. Formatting must already have been applied before publication.
+Do not make CI run `spotless:apply` merely to hide unformatted code. Formatting belongs to the canonical local finalization sequence.
 
-Before considering a workflow finished, verify:
+Before considering the default workflow finished, verify:
 
 - workflow YAML is syntactically valid;
 - Java version matches the project;
 - selected action versions are current and not deprecated in runner logs;
-- production compile/package passes;
-- complete test sources compile;
-- all configured tests pass;
-- the exact CI parity command passes;
-- Cucumber executes at least one scenario when configured;
-- Spring Boot 4 test modularization dependencies are present when needed;
-- Mockito matchers for overloaded APIs are explicitly typed;
+- the production compile/package job passes;
+- API-first validation/generation participates in that Maven lifecycle when configured;
+- generated production sources compile;
 - CI uses the Maven Wrapper rather than silently switching to global Maven.
+
+Tests, Cucumber discovery, JaCoCo coverage, and Spotless remain verification requirements when configured, but their proof comes from the mandatory local finalization sequence unless CI explicitly includes those gates.
 
 ## Cucumber with Maven and JUnit Platform
 
@@ -192,7 +181,7 @@ For each service, cover at least:
 
 ## Containerized runtime acceptance test
 
-For a newly generated persistent microservice, or when the user asks to prove that it runs and persists data, perform this after the automated quality gate:
+For a newly generated persistent microservice, or when the user asks to prove that it runs and persists data, perform this after the mandatory Maven finalization sequence:
 
 1. Run `docker compose config` and require success.
 2. Start the complete stack with `docker compose up -d --build`.
@@ -204,7 +193,7 @@ For a newly generated persistent microservice, or when the user asks to prove th
 8. Query the database directly again and require the same row to exist.
 9. Check final container health and identify the named volume that retained the data.
 
-The runtime test passes only when formatting, production compilation, automated tests, CI parity, Flyway, container health, API creation, direct database verification, restart retrieval, second database verification, and named-volume persistence all succeed.
+The runtime test passes only when formatting, production compilation, automated tests, the final local quality gate, Flyway, container health, API creation, direct database verification, restart retrieval, second database verification, and named-volume persistence all succeed.
 
 Never use `docker compose down -v`, `docker volume rm`, or equivalent destructive volume deletion during persistence verification unless the user explicitly requests a clean reset.
 
