@@ -42,6 +42,20 @@ Every command must exit with code `0`. If formatting changes source files, rerun
 
 When GitHub Actions uses a different Maven Wrapper command, run that exact command too before publishing changes.
 
+### Publication guard for tool-constrained agents
+
+Being able to create or update files in GitHub is not enough to publish a generated Java project safely.
+
+If the current environment cannot execute the target repository's Maven Wrapper, the agent must not push generated or modified Java code directly to the default branch and must not report the project as ready. In particular:
+
+- do not guess what `spotless:apply` would change;
+- do not treat hand-formatted Java as equivalent to running Spotless;
+- do not rely on GitHub Actions to discover formatting or compilation problems after publication;
+- do not weaken or remove `spotless:check` to make CI pass;
+- do not claim compilation or test success without command output from the exact revision being published.
+
+The correct behavior when execution is unavailable is to report the blocker rather than publish an unverified default-branch commit. This rule exists specifically to prevent first-run CI failures caused by code that was written but never formatted or compiled.
+
 For a new persistent microservice, continue with the runtime acceptance test required by `docs/testing.md`: validate Compose, build and start the full stack, verify container health, create through the real API, query SQL Server directly, restart containers without deleting volumes, and prove the same row still exists through both API and SQL Server.
 
 If the environment prevents a required verification, state exactly what could not be executed. Never claim that a project is compiled, tested, persistence-verified, CI-ready, or complete without execution evidence for the corresponding check.
