@@ -25,6 +25,21 @@ Run `spotless:check` in CI together with the test suite. CI is a verifier, not a
 
 A formatting failure means the implementation is not ready to publish.
 
+## Formatter execution capability guard
+
+An agent must not publish generated or modified Java code to the target/default branch unless it has actually executed the repository Maven Wrapper formatter successfully against the exact files being published.
+
+This rule applies especially to tool-constrained environments such as GitHub-only connectors where files can be written but local Maven commands cannot be executed.
+
+- Having generated code that appears formatted is not evidence that Spotless will accept it.
+- Manually approximating Palantir Java Format is not a substitute for `spotless:apply`.
+- Reading a Spotless diff from a previous CI run is not a substitute for executing the formatter on the current revision.
+- If the environment cannot run `./mvnw ... spotless:apply`, do not push the Java change to the default branch and do not report it as ready.
+- If publication is explicitly required but execution is unavailable, report the verification blocker instead of creating an unverified default-branch commit.
+- After `spotless:apply`, run `git diff --check` when Git is available and ensure no formatter-produced changes remain uncommitted before publication.
+
+Generated projects that use these rules must keep Spotless configured in `pom.xml`; removing or bypassing the formatter to make CI green is prohibited.
+
 ## Variables and parameters
 
 - Do not use `final` on method parameters or local variables.
