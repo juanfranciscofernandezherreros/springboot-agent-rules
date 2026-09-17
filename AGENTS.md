@@ -27,24 +27,25 @@ Before modifying or generating code:
 5. Verification, CI, finalization, and publication behavior always follow `docs/testing.md` exactly.
 6. Inspect existing project conventions before creating new files.
 7. Establish the domain contract from the user's request and existing project sources before generating production code.
-8. Do not silently invent business fields, states, transitions, validation rules, endpoints, identifiers, financial rules, security behavior, persistence semantics, datasource settings, or schema rules.
-9. Do not introduce dependencies unless required by the requested feature, selected database engine, selected web stack, or established project conventions.
-10. Keep changes focused on the requested task.
-11. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
-12. Prefer existing patterns over inventing new abstractions.
-13. If generating a project from scratch, create all files necessary for it to build and run.
-14. New generated projects use Java 21 unless the user explicitly requests another supported Java version.
-15. New Spring Boot 4 MVC services use `spring-boot-starter-webmvc` unless an existing project already establishes another supported web stack.
-16. New persistent projects use Microsoft SQL Server by default unless explicitly overridden.
-17. Existing projects preserve their already configured datasource and database engine unless the user explicitly requests migration or replacement.
-18. A new persistent microservice includes a production-style `Dockerfile`, `.dockerignore`, and Docker Compose stack for the application and SQL Server with health-aware dependencies and persistent storage.
-19. Before commit, push, pull request creation, or reporting completion, execute the canonical finalization sequence from `docs/testing.md` on the exact revision.
-20. Do not copy, shorten, reorder, or partially substitute that sequence in this file or elsewhere.
-21. When GitHub Actions exists, run the exact Maven Wrapper command used by the workflow as an additional pre-publication parity gate when `docs/testing.md` requires it.
-22. CI verifies committed code; CI does not repair formatting and does not replace an executable pre-publication formatter gate.
-23. Never report a stronger verification state than the highest state actually achieved on the exact revision. Use the state model in `docs/testing.md`.
-24. For a new persistent microservice, automated tests do not replace the runtime acceptance and persistence test defined in `docs/testing.md` and `docs/database.md`.
-25. Report concrete verification evidence and exact blockers. Never claim compiled, tested, persistence-verified, CI-ready, verified, or complete without the corresponding execution evidence.
+8. When the requested feature contract is incomplete, do not require the user to provide a fully specified contract manually. Run the interactive contract discovery process defined in `docs/domain-contract.md`, asking only for requirements that cannot be derived from the request or existing project sources.
+9. Do not silently invent business fields, states, transitions, validation rules, endpoints, identifiers, financial rules, security behavior, persistence semantics, datasource settings, or schema rules.
+10. Do not introduce dependencies unless required by the requested feature, selected database engine, selected web stack, or established project conventions.
+11. Keep changes focused on the requested task.
+12. Do not change public APIs, database schemas, datasource configuration, or architectural conventions unless explicitly requested.
+13. Prefer existing patterns over inventing new abstractions.
+14. If generating a project from scratch, create all files necessary for it to build and run.
+15. New generated projects use Java 21 unless the user explicitly requests another supported Java version.
+16. New Spring Boot 4 MVC services use `spring-boot-starter-webmvc` unless an existing project already establishes another supported web stack.
+17. New persistent projects use Microsoft SQL Server by default unless explicitly overridden.
+18. Existing projects preserve their already configured datasource and database engine unless the user explicitly requests migration or replacement.
+19. A new persistent microservice includes a production-style `Dockerfile`, `.dockerignore`, and Docker Compose stack for the application and SQL Server with health-aware dependencies and persistent storage.
+20. Before commit, push, pull request creation, or reporting completion, execute the canonical finalization sequence from `docs/testing.md` on the exact revision.
+21. Do not copy, shorten, reorder, or partially substitute that sequence in this file or elsewhere.
+22. When GitHub Actions exists, run the exact Maven Wrapper command used by the workflow as an additional pre-publication parity gate when `docs/testing.md` requires it.
+23. CI verifies committed code; CI does not repair formatting and does not replace an executable pre-publication formatter gate.
+24. Never report a stronger verification state than the highest state actually achieved on the exact revision. Use the state model in `docs/testing.md`.
+25. For a new persistent microservice, automated tests do not replace the runtime acceptance and persistence test defined in `docs/testing.md` and `docs/database.md`.
+26. Report concrete verification evidence and exact blockers. Never claim compiled, tested, persistence-verified, CI-ready, verified, or complete without the corresponding execution evidence.
 
 ## Publication guard
 
