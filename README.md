@@ -4,25 +4,34 @@ A practical, opinionated ruleset for AI coding agents that generate and maintain
 
 The repository contains agent instructions and engineering standards in [`AGENTS.md`](AGENTS.md) and [`docs/`](docs/). It intentionally contains no generated microservice, build output, or database runtime.
 
-The goal is to give an AI coding agent enough explicit context to produce code that looks like it belongs to the same codebase every time, including database-specific behavior.
+## Normative sources and precedence
 
-## Rules
+`README.md` and `START_HERE.md` are explanatory documents only. They must not redefine mandatory commands, publication gates, stack defaults, or behavioral rules.
 
-`AGENTS.md` is the root instruction file. Detailed standards live under `docs/`:
+When instructions overlap, use this precedence:
 
-| Document | Purpose |
+1. [`AGENTS.md`](AGENTS.md) defines mandatory agent behavior and rule precedence.
+2. The relevant document under [`docs/`](docs/) defines the canonical subject-specific rule.
+3. `README.md` and `START_HERE.md` explain and link to those rules but do not override them.
+
+If explanatory documentation conflicts with a higher-precedence source, follow the higher-precedence source and fix the explanatory document.
+
+## Canonical standards
+
+| Document | Canonical responsibility |
 | --- | --- |
-| [`java-style.md`](docs/java-style.md) | Java style and formatting |
+| [`domain-contract.md`](docs/domain-contract.md) | Feature/API contract and assumption control |
+| [`java-style.md`](docs/java-style.md) | Java style and formatter behavior |
 | [`annotations.md`](docs/annotations.md) | Annotation usage and placement |
 | [`layered-architecture.md`](docs/layered-architecture.md) | Feature-oriented layered architecture |
 | [`controllers.md`](docs/controllers.md) | REST controller conventions |
 | [`mappers.md`](docs/mappers.md) | DTO, model, and entity mappings |
 | [`exceptions.md`](docs/exceptions.md) | Application/API error handling |
-| [`testing.md`](docs/testing.md) | Unit and integration testing conventions |
+| [`testing.md`](docs/testing.md) | Tests, CI, finalization gates, verification states, publication rules |
 | [`logging.md`](docs/logging.md) | Logging conventions |
-| [`database.md`](docs/database.md) | SQL Server, Docker, Flyway, datasources, secrets, and multi-datasource rules |
+| [`database.md`](docs/database.md) | SQL Server, Docker, Flyway, datasources, secrets, multi-datasource rules |
 
-Persistence work must read `docs/database.md` in addition to the architectural rules.
+Persistence work must read `docs/database.md`. New features and public API work must read `docs/domain-contract.md`.
 
 ## Architecture
 
@@ -41,148 +50,48 @@ com/<company>/<app>/<feature>/
 
 Controllers handle HTTP concerns only. Services own business logic and transaction boundaries. Models contain no JPA annotations. Persistence is isolated in entities/repositories. Explicit mappers connect DTOs, models, and entities.
 
-## Default stack
+## Default stack overview
 
-Unless explicitly overridden, newly generated projects use:
+Unless explicitly overridden or an existing project establishes another supported convention, newly generated services use:
 
-- Java 21
-- Spring Boot 4.x
-- Maven Wrapper
-- Spring Web MVC
-- Spring Data JPA
-- Bean Validation
-- Microsoft SQL Server
-- Microsoft JDBC Driver for SQL Server
-- Flyway SQL Server support
-- Lombok
-- JUnit 6, Mockito, and AssertJ
-- Spotless with Palantir Java Format
+- Java 21;
+- Spring Boot 4.x;
+- Maven Wrapper;
+- Spring MVC using `spring-boot-starter-webmvc` for newly generated Boot 4 MVC services;
+- Spring Data JPA;
+- Bean Validation;
+- Microsoft SQL Server for new persistent services;
+- Microsoft JDBC Driver for SQL Server;
+- Flyway SQL Server support;
+- Lombok;
+- JUnit 6, Mockito, and AssertJ;
+- Spotless with Palantir Java Format.
 
-New persistent services use SQL Server by default. Do not silently substitute H2, PostgreSQL, MySQL, or another database.
+Existing projects keep their configured datasource, database engine, web stack, and established conventions unless the user explicitly requests a migration or replacement.
 
-When working inside an existing project, preserve its already configured datasource and database engine unless the user explicitly requests a migration or replacement.
+## Finalization and publication
 
-For persistence and integration behavior that depends on database semantics, test against SQL Server rather than assuming H2 is equivalent.
+There is exactly one canonical definition of the Maven finalization sequence and publication rules: [`docs/testing.md`](docs/testing.md).
+
+Do not copy, shorten, reorder, or redefine that command sequence in this README. Generated or modified code is not considered verified merely because files were written or because CI may run later.
+
+CI verifies committed code; it does not replace mandatory pre-publication formatting and verification when the agent can execute those checks.
 
 ## Generated local stack
 
-New persistent microservices must include a complete Docker Compose stack containing the application, SQL Server, health checks, database initialization, and a named database volume.
-
-The generated project must be startable with:
-
-```bash
-docker compose up -d --build
-```
-
-The verification process creates a record through the real HTTP API, confirms it directly in SQL Server, recreates the containers without deleting the volume, and verifies the same record again through both paths. See [`database.md`](docs/database.md) and [`testing.md`](docs/testing.md).
-
-## Corporate SQL Server environments
-
-Local Docker authentication is intentionally simpler than a corporate deployment.
-
-The rules explicitly cover existing named datasources such as `spring.datasource.sqlserverdb`, including configurations that use:
-
-- externally supplied host, port, database, username, and password;
-- TLS/encryption options;
-- NTLM/integrated security;
-- trust stores;
-- named persistence units;
-- datasource-specific Hikari pools;
-- platform secret groups such as `sql-server-billinguser`.
-
-Agents must preserve those project-specific settings rather than replacing them with local defaults. Secret values must never be copied into source control.
-
-See [`docs/database.md`](docs/database.md) for the complete rules.
+New persistent microservices must include a complete Docker Compose stack containing the application, SQL Server, health checks, database initialization when required, and a named database volume. Runtime acceptance and persistence verification are defined in [`docs/testing.md`](docs/testing.md) and [`docs/database.md`](docs/database.md).
 
 ## Flyway
 
-Flyway owns schema evolution. Generated SQL Server projects use SQL Server-compatible migrations, and Hibernate validates the schema with `ddl-auto: validate`.
+Flyway owns schema evolution. Generated SQL Server projects use SQL Server-compatible migrations, and Hibernate validates the schema rather than mutating it in deployed environments.
 
-New migrations must use SQL Server/T-SQL-compatible types and syntax.
+## Recommended usage
 
-## Generated project quality gate
-
-Generated Maven projects must provide the wrapper and pass:
-
-```bash
-./mvnw spotless:check && ./mvnw verify
-```
-
-## Recommended prompt
-
-Because Java 21, Maven Wrapper, SQL Server, Flyway, Docker and the testing strategy are already defined by the repository, prompts do not need to repeat those defaults.
-
-For example, to generate a complete microservice:
-
-```text
-Read `AGENTS.md` completely and read every relevant file under `docs/` before generating code.
-
-Create a complete Spring Boot microservice following this repository's rules.
-
-Project:
-- name: orders-api
-- group: com.acme
-- artifact: orders-api
-- base package: com.acme.orders
-
-Initial feature: Order CRUD
-
-Fields:
-- id: Long, generated primary key
-- customerReference: String, required, max 100
-- status: enum, required
-- totalAmount: BigDecimal, required, positive
-- createdAt: Instant, generated on create
-
-Operations:
-- POST /orders
-- GET /orders/{id}
-- GET /orders/search with pagination and filters by customerReference and status
-- PATCH /orders/{id}
-- DELETE /orders/{id}
-
-Generate everything required to build, test, run and verify the application.
-
-Follow the repository defaults for Java, build tooling, database, persistence, migrations, Docker and testing.
-
-Run formatting and the complete test suite.
-Then start the complete Docker Compose stack, create a record through the real HTTP API, verify it directly in SQL Server, recreate the containers without deleting the volume, and verify that the same record still exists through both the API and SQL Server.
-
-Do not stop until the generated project builds successfully and all required verification steps pass.
-```
-
-For a feature inside an existing project, the prompt can be shorter:
-
-```text
-Read `AGENTS.md` completely and every relevant file under `docs/`.
-
-Add a Customer CRUD feature following the existing project conventions and this repository's rules.
-
-Base path: /customers
-
-Fields:
-- id: Long, generated primary key
-- firstName: String, required, max 100
-- lastName: String, required, max 100
-- email: String, required, valid email, unique, max 255
-- active: Boolean, required, default true
-
-Operations:
-- create
-- get by id
-- paginated search by lastName/email/active
-- patch
-- delete
-
-Add the required migration and tests.
-Run formatting and the relevant test suite when finished.
-```
-
-For a more explicit starter prompt, see [`START_HERE.md`](START_HERE.md).
+Start with [`START_HERE.md`](START_HERE.md), then read `AGENTS.md` and every relevant canonical document under `docs/` before generating or modifying code.
 
 ## Principle
 
-The repository is intentionally opinionated. It stores only reusable rules and prompts; generated applications belong in their own directories and repositories.
+The repository is intentionally opinionated. It stores reusable rules and prompts; generated applications belong in their own directories and repositories.
 
 ## License
 
