@@ -44,6 +44,31 @@ verify(repository, never()).delete(any());
 
 Apply the same rule to `save`, `find`, custom repository methods, or any API where overload resolution can become ambiguous after a dependency upgrade.
 
+## Mandatory finalization sequence
+
+For every generated or modified Maven project, run these checks in order before commit, push, pull request creation, or reporting completion:
+
+```bash
+./mvnw --batch-mode --no-transfer-progress spotless:apply
+./mvnw --batch-mode --no-transfer-progress spotless:check
+./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
+./mvnw --batch-mode --no-transfer-progress verify
+./mvnw --batch-mode --no-transfer-progress spotless:check verify
+```
+
+Rules:
+
+- Every command above must exit with code `0`.
+- If `spotless:apply` changes files, rerun all later checks against the formatted sources.
+- If any source, test, dependency, build, or formatting file changes after a successful check, rerun the affected sequence; when in doubt, rerun all five commands.
+- Never commit or push generated code after only writing files. The quality gate is part of generation.
+- Never report a project as buildable, tested, verified, ready, or complete if a required command was not executed successfully.
+- If the execution environment lacks Java, Maven Wrapper prerequisites, Docker, network access, or another required runtime, state exactly which verification could not be performed. Do not substitute an assumption for execution evidence.
+
+The compile-only command deliberately uses `-Dmaven.test.skip=true`: it must compile/package production sources without compiling tests. This isolates production compilation failures from test compilation failures.
+
+The final `spotless:check verify` command is the default CI parity gate. When the repository's GitHub Actions workflow uses a different Maven Wrapper command, execute that exact command locally as an additional mandatory gate before publishing.
+
 ## Cucumber with Maven and JUnit Platform
 
 When adding Cucumber to a Maven project, configure it explicitly instead of assuming the existing JUnit setup is sufficient.
@@ -111,8 +136,8 @@ jobs:
           cache: maven
       - run: ./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true clean package
 
-  cucumber:
-    name: Cucumber tests
+  quality:
+    name: Quality gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -121,12 +146,14 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - run: ./mvnw --batch-mode --no-transfer-progress -Dtest=CucumberTest test
+      - run: ./mvnw --batch-mode --no-transfer-progress spotless:check verify
 ```
 
 Use the Maven Wrapper when the repository provides it. Do not silently replace it with a globally installed `mvn` command in generated workflows.
 
 For a compile-only job, use `-Dmaven.test.skip=true` when the intention is to skip both test execution and test compilation. `-DskipTests` skips execution but still compiles test sources, which can make a supposedly compile-only job fail because of unrelated test compilation errors.
+
+Do not make CI run `spotless:apply` merely to hide unformatted code. Formatting must be applied before code is committed; CI should reject dirty formatting with `spotless:check`.
 
 Do not consider a workflow finished until you have checked all of the following:
 
@@ -135,7 +162,9 @@ Do not consider a workflow finished until you have checked all of the following:
 - the selected action versions are current and not already deprecated in runner logs;
 - the compile/package command passes;
 - the complete test source set compiles;
-- the Cucumber suite is discovered and executes at least one scenario;
+- all configured tests pass;
+- the final CI parity command passes;
+- the Cucumber suite is discovered and executes at least one scenario when Cucumber is configured;
 - existing unit/MVC tests remain compilable;
 - Maven dependency changes required by Spring Boot 4 test modularization are present;
 - Mockito matchers used with overloaded framework APIs are explicitly typed;
@@ -159,30 +188,28 @@ For each service, cover at least:
 - happy path;
 - find-or-404 behavior;
 - guard clauses that reject before persistence, including typed `verify(repo, never()).save(any(EntityType.class))` / `delete(any(EntityType.class))` when overloaded methods make raw `any()` ambiguous;
-- PATCH semantics for partial updates.
-
-Quality gate:
-
-```bash
-./mvnw spotless:check && ./mvnw verify
-```
+- PATCH semantics for partial updates when PATCH is part of the feature contract.
 
 ## Containerized runtime acceptance test
 
 When generating a new persistent microservice, or when the user asks to prove that it runs and persists data, perform this test after the automated quality gate:
 
-1. Validate the Compose configuration and build the application image.
-2. Start the complete stack and wait for healthy application and database containers.
-3. Use `curl` to create a record through the real HTTP endpoint. Capture the HTTP status, response body, generated identifier, and a unique value such as an email or external reference.
-4. Use the database container's native command-line client to select that row from the actual table.
-5. Recreate the containers with `docker compose down` followed by `docker compose up -d`. Do not pass `-v`.
-6. Use `curl` to retrieve the same record by identifier and require the expected success status and field values.
-7. Query the database table again and require the same row to exist.
-8. Check final container health and report the named database volume.
+1. Run `docker compose config` and require success.
+2. Start the complete stack with `docker compose up -d --build`.
+3. Wait for healthy application and database containers and require every one-shot initializer to exit with code `0`.
+4. Use `curl` to create a uniquely identifiable record through the real HTTP endpoint. Capture the HTTP status, response body, generated identifier, and unique value.
+5. Use the database container's native command-line client to select that row from the actual table.
+6. Run `docker compose down` without `-v`, then start the stack again with `docker compose up -d`.
+7. Use `curl` to retrieve the same record by identifier and require the expected success status and field values.
+8. Query the database table again and require the same row to exist.
+9. Check final container health and identify the named database volume that retained the data.
 
 The test passes only when all of the following are true:
 
-- the normal build and automated tests pass;
+- formatting passes;
+- production compilation/package passes;
+- the complete automated test suite passes;
+- the exact CI parity command passes;
 - Flyway applies or validates all migrations successfully;
 - the application and database containers are healthy;
 - the create request returns the documented success status;
